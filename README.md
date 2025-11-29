@@ -8,3 +8,82 @@
 | Prepare final report and presentation          | 01/25/2026    |
 
 **Table:** Timeline of major project activities
+
+
+
+Comp541-Project/
+│
+├── README.md
+├── environment.yml
+├── setup.py
+│
+├── configs/
+│   ├── dna_config.yaml
+│   ├── rna_config.yaml
+│   ├── protein_config.yaml
+│   ├── fusion_concat.yaml
+│   ├── fusion_mil.yaml
+│   ├── fusion_xattn.yaml
+│   ├── lora_config.yaml
+│
+├── data/
+│   ├── raw/
+│   │   ├── cov_vac/
+│   │   ├── fungal/
+│   │   ├── ecoli/
+│   │   ├── mrna_stability/
+│   │   ├── ab1/
+│   ├── processed/
+│   ├── loaders/
+│       ├── dna_dataset.py
+│       ├── rna_dataset.py
+│       ├── protein_dataset.py
+│       ├── multimodal_dataset.py
+│
+├── models/
+│   ├── __init__.py
+│   ├── dna_model.py              ← Nucleotide Transformer
+│   ├── rna_model.py              ← RNA-FM (or ESM1b)
+│   ├── protein_model.py          ← ESM-2
+│   ├── text_model.py             ← BioBERT/SciBERT
+│   ├── projection_heads.py       ← linear projection to shared latent
+│   ├── fusion_concat.py
+│   ├── fusion_mil.py
+│   ├── fusion_xattn.py
+│   ├── prediction_head.py        ← TextCNN or MLP
+│   ├── lora_adapter.py           ← Low-Rank Adaptation
+│
+├── training/
+│   ├── train_concat.py
+│   ├── train_mil.py
+│   ├── train_xattn.py
+│   ├── train_lora.py
+│   ├── optimizer.py
+│   ├── scheduler.py
+│   ├── metrics.py
+│
+├── evaluation/
+│   ├── eval_regression.py
+│   ├── eval_classification.py
+│   ├── eval_multimodal_transfer.py
+│
+├── analysis/
+│   ├── visualize_embeddings.py
+│   ├── tSNE_plots.ipynb
+│   ├── compare_modalities.ipynb
+│   ├── cross_task_transfer.ipynb
+│
+├── notebooks/
+│   ├── 01_data_exploration.ipynb
+│   ├── 02_train_concat.ipynb
+│   ├── 03_train_mil.ipynb
+│   ├── 04_train_xattn.ipynb
+│   ├── 05_lora_finetuning.ipynb
+│   ├── 06_transfer_learning.ipynb
+│   ├── 07_results_summary.ipynb
+│
+└── results/
+    ├── trained_models/
+    ├── predictions/
+    ├── plots/
+    └── logs/
