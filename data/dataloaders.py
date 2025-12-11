@@ -8,11 +8,8 @@ from loaders.rna_dataset import RNADataset
 # cov_vac: "https://raw.githubusercontent.com/Sanofi-Public/CodonBERT/refs/heads/master/benchmarks/CodonBERT/data/fine-tune/CoV_Vaccine_Degradation.csv"
 def get_loaders(url, batch_size=32): 
     df = pd.read_csv(url)
-
     df["Value"] = df["Value"].astype(int)
-    if "Dataset" in df.columns:
-        df = df[df["Dataset"] == "E.Coli proteins"]
-
+    
     train_df = df[df["Split"] == "train"]
     val_df = df[df["Split"] == "val"]
     test_df = df[df["Split"] == "test"]
