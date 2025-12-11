@@ -3,10 +3,7 @@ import torch.nn as nn
 from transformers import AutoTokenizer, AutoModel
 
 class NucleotideTransformerEmbedder(nn.Module):
-    def __init__(self,
-                 model_name="zhihan1996/DNABERT-2-117M",
-                 max_len=512,
-                 device="cpu"):
+    def __init__(self, model_name="zhihan1996/DNABERT-2-117M", max_len=512, device="cpu"):
         super().__init__()
 
         print(f"Loading public DNA model: {model_name}")
@@ -15,8 +12,7 @@ class NucleotideTransformerEmbedder(nn.Module):
         self.max_len = max_len
 
         # DNABERT-2 requires trust_remote_code=True
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            model_name,
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name,
             trust_remote_code=True
         )
 
