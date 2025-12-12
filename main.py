@@ -2,26 +2,27 @@ import torch
 
 from data.dataloaders import get_loaders
 from utils.load_config import load_config
-from models.unimodel_rna import build_model
+from models.unimodel import build_model
 from trainer import RegressionTrainer
 
 def main():
     name = 'uni_rna'
     config = load_config(f'{name}.yml')
 
-    dataset_name = 'fungal_expression' # 'mrna_stability', 'ecoli_proteins', 'cov_vaccine_degradation', 'fungal_expression'
-
     config['device'] = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     print("=" * 60)
     print("Training Configuration:")
     print(f"  Name: {config['name']}")
-    print(f"  Dataset: {dataset_name}")
+    print(f"  Dataset: {config['Dataset']}")
+    print(f"  Modality: {config['modality']}")
+    print(f"  Batch Size: {config['batch_size']}")
+    print(f"  Epochs: {config['epochs']}")
     print("=" * 60)
     
     # Load data
     print("\nLoading data...")
-    train_loader, val_loader, test_loader = get_loaders(dataset_name, config['batch_size'])
+    train_loader, val_loader, test_loader = get_loaders(config['Dataset'], config['batch_size'], modality=config['modality'])
     
     # Initialize model
     print("\nInitializing model...")
@@ -35,7 +36,7 @@ def main():
         val_loader=val_loader,
         test_loader=test_loader,
         device=config['device'],
-        save_dir=f"./checkpoints/{dataset_name}",
+        save_dir=f"./checkpoints/{config['name']}/{config['modality']}",
         config=config
     )
     

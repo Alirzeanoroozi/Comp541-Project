@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 class TextCNNHead(nn.Module):
     """
     TextCNN for sequence-level prediction.
@@ -29,16 +28,15 @@ class TextCNNHead(nn.Module):
 
         return self.fc(feat)
 
-
 class MLPHead(nn.Module):
-    def __init__(self, input_dim=256, num_classes=1):
+    def __init__(self, input_dim=256, projection_dim=600, num_classes=1):
         super().__init__()
-
         self.net = nn.Sequential(
-            nn.Linear(input_dim, 256),
+            nn.Linear(input_dim, projection_dim),
             nn.ReLU(),
-            nn.Linear(256, num_classes)
+            nn.Linear(projection_dim, num_classes)
         )
-
+    
     def forward(self, x):
-        return self.net(x.mean(dim=0))
+        # x: (B, D) - already batched and pooled
+        return self.net(x).squeeze(-1)  # (B,)

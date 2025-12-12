@@ -1,9 +1,8 @@
-learning_rate: 3e-5
-weight_decay: 1e-5
+name: uni_rna
+modality: RNA
+Dataset: fungal_expression #  'mrna_stability', 'ecoli_proteins', 'cov_vaccine_degradation', 'fungal_expression'
 batch_size: 32
 epochs: 500
-scheduler: reducelronplateau
-scheduler_patience: 5
-early_stopping_patience: 20
-entropy_lambda: 0.0  # Set to > 0 if using entropy regularization
-loss: mse
+max_len: 3000 # max length of the sequence
+projection_dim: 600 # dimension of the projection head
+embedding_dim: 640 # dimension of the embedding

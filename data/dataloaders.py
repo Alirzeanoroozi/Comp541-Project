@@ -1,8 +1,8 @@
 import pandas as pd
 from torch.utils.data import DataLoader
-from data.loaders.rna_dataset import RNADataset
+from data.loaders.unimodal_dataset import UnimodalDataset
 
-def get_loaders(name, batch_size=32): 
+def get_loaders(name, batch_size=32, modality="RNA"): 
     df = pd.read_csv(f"data/datasets/{name}.csv")
 
     df["Value"] = df["Value"].astype(int)
@@ -10,10 +10,9 @@ def get_loaders(name, batch_size=32):
     val_df = df[df["Split"] == "val"]
     test_df = df[df["Split"] == "test"]
 
-    # labels; 
-    train_dataset = RNADataset(sequences=train_df["Sequence"].tolist(), labels=train_df["Value"].tolist())
-    val_dataset = RNADataset(sequences=val_df["Sequence"].tolist(), labels=val_df["Value"].tolist())
-    test_dataset = RNADataset(sequences=test_df["Sequence"].tolist(), labels=test_df["Value"].tolist())
+    train_dataset = UnimodalDataset(sequences=train_df[modality].tolist(), labels=train_df["Value"].tolist())
+    val_dataset = UnimodalDataset(sequences=val_df[modality].tolist(), labels=val_df["Value"].tolist())
+    test_dataset = UnimodalDataset(sequences=test_df[modality].tolist(), labels=test_df["Value"].tolist())
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)

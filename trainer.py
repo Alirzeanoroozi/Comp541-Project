@@ -17,8 +17,8 @@ class RegressionTrainer:
         
         self.optimizer = optim.Adam(
             model.parameters(),
-            lr=config['learning_rate'],
-            weight_decay=config['weight_decay']
+            lr=config.get('learning_rate', 1e-3),
+            weight_decay=config.get('weight_decay', 1e-5)
         )
         
         self.criterion = nn.MSELoss()
@@ -27,16 +27,16 @@ class RegressionTrainer:
             self.optimizer,
             mode='min',
             factor=0.5,
-            patience=self.config.get('scheduler_patience', 5),
+            patience=5
         )
         
         # Early stopping
-        self.early_stopping_patience = self.config.get('early_stopping_patience', None)
+        self.early_stopping_patience = 20
         self.early_stopping_counter = 0
         self.best_val_loss_for_early_stop = float('inf')
         
         # Entropy regularization weight
-        self.entropy_lambda = self.config.get('entropy_lambda', 0.0)
+        self.entropy_lambda = 0.0
         
         # Create save directory
         self.save_dir = Path(save_dir)
@@ -182,11 +182,7 @@ class RegressionTrainer:
             val_metrics = self.validate(self.val_loader)
             
             # Update scheduler
-            if self.scheduler:
-                if isinstance(self.scheduler, optim.lr_scheduler.ReduceLROnPlateau):
-                    self.scheduler.step(val_metrics['loss'])
-                else:
-                    self.scheduler.step()
+            self.scheduler.step(val_metrics['loss'])
             
             # Update history
             self.history['train_loss'].append(train_metrics['loss'])
@@ -220,16 +216,15 @@ class RegressionTrainer:
                   f"Spearman: {val_metrics.get('spearman', 0.0):.4f}")
             
             # Early stopping check
-            if self.early_stopping_patience is not None:
-                if val_metrics['loss'] < self.best_val_loss_for_early_stop:
-                    self.best_val_loss_for_early_stop = val_metrics['loss']
-                    self.early_stopping_counter = 0
-                else:
-                    self.early_stopping_counter += 1
-                    if self.early_stopping_counter >= self.early_stopping_patience:
-                        print(f"\nEarly stopping triggered after {epoch+1} epochs!")
-                        print(f"Best validation loss: {self.best_val_loss_for_early_stop:.4f}")
-                        break
+            if val_metrics['loss'] < self.best_val_loss_for_early_stop:
+                self.best_val_loss_for_early_stop = val_metrics['loss']
+                self.early_stopping_counter = 0
+            else:
+                self.early_stopping_counter += 1
+                if self.early_stopping_counter >= self.early_stopping_patience:
+                    print(f"\nEarly stopping triggered after {epoch+1} epochs!")
+                    print(f"Best validation loss: {self.best_val_loss_for_early_stop:.4f}")
+                    break
             
             # Plot progress every 5 epochs or on last epoch
             if (epoch + 1) % 5 == 0 or epoch == num_epochs - 1:

@@ -2,8 +2,8 @@
 import torch
 from torch.utils.data import Dataset
 
-class RNADataset(Dataset):
-    def __init__(self, sequences, labels=None):
+class UnimodalDataset(Dataset):
+    def __init__(self, sequences, labels):
         self.sequences = sequences
         self.labels = labels
 
@@ -12,8 +12,4 @@ class RNADataset(Dataset):
 
     def __getitem__(self, idx):
         seq = self.sequences[idx]
-
-        if self.labels is None:
-            return {"rna": seq}
-        else:
-            return {"rna": seq, "label": torch.tensor(self.labels[idx])}
+        return seq, torch.tensor(self.labels[idx])
