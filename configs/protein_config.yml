@@ -1,6 +1,0 @@
-model:
-  name: "ESM-2"
-  pretrained_model: "facebook/esm2_t33_650M_UR50D"
-  max_len: 1024
-  projection_dim: 256
-  freeze_encoder: true

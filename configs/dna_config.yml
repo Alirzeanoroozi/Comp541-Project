@@ -1,6 +1,0 @@
-model:
-  name: "DNABERT-2"
-  pretrained_model: "zhihan1996/DNABERT-2-117M"
-  max_len: 512
-  projection_dim: 256
-  freeze_encoder: true
