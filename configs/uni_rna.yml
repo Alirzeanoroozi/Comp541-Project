@@ -1,0 +1,9 @@
+learning_rate: 3e-5
+weight_decay: 1e-5
+batch_size: 32
+epochs: 500
+scheduler: reducelronplateau
+scheduler_patience: 5
+early_stopping_patience: 20
+entropy_lambda: 0.0  # Set to > 0 if using entropy regularization
+loss: mse

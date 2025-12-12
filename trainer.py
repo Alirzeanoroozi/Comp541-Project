@@ -1,73 +1,34 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-import os
-from typing import Optional, Dict, List
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from scipy.stats import spearmanr
 
 class RegressionTrainer:
-    """
-    Trainer class for regression tasks with plotting capabilities.
-    Supports both single-modal and multi-modal models.
-    """
-    
-    def __init__(
-        self,
-        model: nn.Module,
-        train_loader: DataLoader,
-        val_loader: DataLoader,
-        test_loader: Optional[DataLoader] = None,
-        optimizer: Optional[optim.Optimizer] = None,
-        criterion: Optional[nn.Module] = None,
-        device: str = "cuda",
-        save_dir: str = "./checkpoints",
-        config: Optional[Dict] = None
-    ):
-        """
-        Initialize the trainer.
-        
-        Args:
-            model: PyTorch model for regression
-            train_loader: Training data loader
-            val_loader: Validation data loader
-            test_loader: Test data loader (optional)
-            optimizer: Optimizer (if None, will use Adam with lr=3e-4)
-            criterion: Loss function (if None, will use MSE)
-            device: Device to train on
-            save_dir: Directory to save checkpoints and plots
-            config: Optional configuration dictionary
-        """
+    def __init__(self, model, train_loader, val_loader, test_loader, device, save_dir, config):
         self.model = model.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.test_loader = test_loader
         self.device = device
         
-        self.optimizer = optimizer
-        self.criterion = criterion
+        self.optimizer = optim.Adam(
+            model.parameters(),
+            lr=config['learning_rate'],
+            weight_decay=config['weight_decay']
+        )
         
-        # Setup scheduler
-        self.config = config or {}
-        scheduler_type = self.config.get('scheduler', '').lower()
-        if scheduler_type == 'cosine':
-            self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
-                self.optimizer,
-                T_max=self.config.get('epochs', 30)
-            )
-        elif scheduler_type == 'reducelronplateau':
-            self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer,
-                mode='min',
-                factor=0.5,
-                patience=self.config.get('scheduler_patience', 5),
-            )
-        else:
-            self.scheduler = None
+        self.criterion = nn.MSELoss()
+    
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer,
+            mode='min',
+            factor=0.5,
+            patience=self.config.get('scheduler_patience', 5),
+        )
         
         # Early stopping
         self.early_stopping_patience = self.config.get('early_stopping_patience', None)
@@ -100,8 +61,7 @@ class RegressionTrainer:
         self.best_val_loss = float('inf')
         self.best_model_state = None
         
-    def train_epoch(self) -> Dict[str, float]:
-        """Train for one epoch."""
+    def train_epoch(self):
         self.model.train()
         total_loss = 0.0
         all_preds = []
@@ -110,51 +70,13 @@ class RegressionTrainer:
         for batch in self.train_loader:
             self.optimizer.zero_grad()
             
-            # Forward pass - handle different input formats
-            if isinstance(batch, dict):
-                # Multi-modal or single-modal with dict format
-                if 'label' in batch:
-                    targets = batch['label'].to(self.device).float()
-                else:
-                    continue
-                
-                # Handle different model input formats
-                if 'dna' in batch and 'rna' in batch and 'protein' in batch:
-                    # Multi-modal
-                    outputs = self.model(
-                        batch['dna'],
-                        batch['rna'],
-                        batch['protein']
-                    )
-                elif 'rna' in batch:
-                    # Single-modal RNA
-                    outputs = self.model(batch['rna'])
-                elif 'dna' in batch:
-                    # Single-modal DNA
-                    outputs = self.model(batch['dna'])
-                elif 'protein' in batch:
-                    # Single-modal Protein
-                    outputs = self.model(batch['protein'])
-                else:
-                    # Try to pass the whole batch dict
-                    outputs = self.model(batch)
-            else:
-                # Assume batch is a tuple (inputs, targets)
-                inputs, targets = batch
-                inputs = inputs.to(self.device) if isinstance(inputs, torch.Tensor) else inputs
-                targets = targets.to(self.device).float()
-                outputs = self.model(inputs)
+            inputs, targets = batch
+            inputs = inputs.to(self.device)
+            targets = targets.to(self.device).float()
+            outputs = self.model(inputs)
             
-            # Ensure outputs are 1D for regression
-            if outputs.dim() > 1:
-                outputs = outputs.squeeze()
-            if targets.dim() > 1:
-                targets = targets.squeeze()
-            
-            # Compute loss
             mse_loss = self.criterion(outputs, targets)
             
-            # Add entropy regularization if enabled
             entropy_loss = 0.0
             if self.entropy_lambda > 0:
                 # Try to get entropy from model if it's a fusion model with attention
@@ -201,8 +123,7 @@ class RegressionTrainer:
             'spearman': spearman_corr
         }
     
-    def validate(self, loader: DataLoader) -> Dict[str, float]:
-        """Validate the model."""
+    def validate(self, loader):
         self.model.eval()
         total_loss = 0.0
         all_preds = []
@@ -210,44 +131,12 @@ class RegressionTrainer:
         
         with torch.no_grad():
             for batch in loader:
-                # Forward pass - handle different input formats
-                if isinstance(batch, dict):
-                    if 'label' in batch:
-                        targets = batch['label'].to(self.device).float()
-                    else:
-                        continue
-                    
-                    # Handle different model input formats
-                    if 'dna' in batch and 'rna' in batch and 'protein' in batch:
-                        outputs = self.model(
-                            batch['dna'],
-                            batch['rna'],
-                            batch['protein']
-                        )
-                    elif 'rna' in batch:
-                        outputs = self.model(batch['rna'])
-                    elif 'dna' in batch:
-                        outputs = self.model(batch['dna'])
-                    elif 'protein' in batch:
-                        outputs = self.model(batch['protein'])
-                    else:
-                        outputs = self.model(batch)
-                else:
-                    inputs, targets = batch
-                    inputs = inputs.to(self.device) if isinstance(inputs, torch.Tensor) else inputs
-                    targets = targets.to(self.device).float()
-                    outputs = self.model(inputs)
-                
-                # Ensure outputs are 1D for regression
-                if outputs.dim() > 1:
-                    outputs = outputs.squeeze()
-                if targets.dim() > 1:
-                    targets = targets.squeeze()
-                
-                # Compute loss
+                inputs, targets = batch
+                inputs = inputs.to(self.device)
+                targets = targets.to(self.device).float()
+                outputs = self.model(inputs)
                 loss = self.criterion(outputs, targets)
                 
-                # Track metrics
                 total_loss += loss.item()
                 all_preds.extend(outputs.cpu().numpy())
                 all_targets.extend(targets.cpu().numpy())
@@ -278,8 +167,7 @@ class RegressionTrainer:
             'targets': all_targets
         }
     
-    def train(self, epochs: Optional[int] = None):
-        """Train the model for specified epochs."""
+    def train(self, epochs):
         num_epochs = epochs or self.config.get('epochs', 30)
         
         print(f"Starting training for {num_epochs} epochs...")
@@ -422,12 +310,9 @@ class RegressionTrainer:
         plt.savefig(self.plots_dir / 'training_curves.png', dpi=300, bbox_inches='tight')
         plt.close()
     
-    def plot_predictions(self, predictions: np.ndarray, targets: np.ndarray, 
-                        epoch: Optional[int] = None):
-        """Plot predictions vs actual values."""
+    def plot_predictions(self, predictions, targets, epoch):
         fig, axes = plt.subplots(1, 2, figsize=(15, 6))
         
-        # Scatter plot
         axes[0].scatter(targets, predictions, alpha=0.5, s=10)
         min_val = min(targets.min(), predictions.min())
         max_val = max(targets.max(), predictions.max())
@@ -438,7 +323,6 @@ class RegressionTrainer:
         axes[0].legend()
         axes[0].grid(True, alpha=0.3)
         
-        # Residual plot
         residuals = predictions - targets
         axes[1].scatter(targets, residuals, alpha=0.5, s=10)
         axes[1].axhline(y=0, color='r', linestyle='--', lw=2)
@@ -452,8 +336,7 @@ class RegressionTrainer:
         plt.savefig(self.plots_dir / f'predictions_{epoch_str}.png', dpi=300, bbox_inches='tight')
         plt.close()
     
-    def save_checkpoint(self, epoch: int, is_best: bool = False):
-        """Save model checkpoint."""
+    def save_checkpoint(self, epoch, is_best):
         checkpoint = {
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
@@ -475,8 +358,7 @@ class RegressionTrainer:
             torch.save(checkpoint, best_path)
             print(f"  Saved best model (val_loss: {self.best_val_loss:.4f})")
     
-    def load_checkpoint(self, checkpoint_path: str):
-        """Load model checkpoint."""
+    def load_checkpoint(self, checkpoint_path):
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -486,8 +368,3 @@ class RegressionTrainer:
         self.history = checkpoint.get('history', self.history)
         return checkpoint['epoch']
 
-
-if __name__ == "__main__":
-    # Example usage
-    print("RegressionTrainer class is ready!")
-    print("Import this class and use it with your models and dataloaders.")
