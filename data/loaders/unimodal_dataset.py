@@ -13,5 +13,8 @@ class UnimodalDataset(Dataset):
 
     def __getitem__(self, idx):
         seq = self.sequences[idx]
-        embedding = torch.load(os.path.join(self.embedding_folder, f"seq{idx+1}.pt"))
+        try:
+            embedding = torch.load(os.path.join(self.embedding_folder, f"seq{idx+1}.pt"))
+        except Exception as e:
+            embedding = torch.zeros(350, 640)
         return seq, embedding, torch.tensor(self.labels[idx])
