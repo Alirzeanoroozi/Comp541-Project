@@ -28,15 +28,3 @@ class TextCNNHead(nn.Module):
 
         return self.fc(feat)
 
-class MLPHead(nn.Module):
-    def __init__(self, input_dim=256, projection_dim=600, num_classes=1):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, projection_dim),
-            nn.ReLU(),
-            nn.Linear(projection_dim, num_classes)
-        )
-    
-    def forward(self, x):
-        # x: (B, D) - already batched and pooled
-        return self.net(x).squeeze(-1)  # (B,)
