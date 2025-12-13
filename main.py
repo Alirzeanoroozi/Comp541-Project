@@ -1,5 +1,5 @@
 import torch
-import sys
+import argparse
 
 from data.dataloaders import get_loaders
 from utils.load_config import load_config
@@ -36,7 +36,7 @@ def main(name):
         val_loader=val_loader,
         test_loader=test_loader,
         device=config['device'],
-        save_dir=f"./checkpoints/{config['name']}/{config['modality']}",
+        save_dir=f"./checkpoints/{config['name']}/{config['Dataset']}",
         config=config
     )
     
@@ -51,11 +51,14 @@ def main(name):
     print("Training completed!")
     print("=" * 60)
 
-
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        name = sys.argv[1]
-    else:
-        name = 'uni_rna'
-    main(name)
+    parser = argparse.ArgumentParser(description="Train unimodal model")
+    parser.add_argument(
+        "--name",
+        type=str,
+        default="uni_rna",
+        help="Name of config file (without .yml extension) to use. Default: uni_rna"
+    )
+    args = parser.parse_args()
+    main(args.name)
 
