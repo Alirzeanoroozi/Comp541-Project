@@ -40,6 +40,10 @@ def process_dataset_embedding(dataset, modality, output_folder, model, max_len):
     for idx, seq in enumerate(tqdm(sequences, desc=f"Embedding {dataset} from {modality}")):
         emb = model(seq)
         save_fp = os.path.join(output_folder, f"seq{idx+1}.pt")
+        if emb is None:
+            print(f"Error: {idx}")
+            print(f"Sequence: {seq}")
+            continue
         save_embedding(emb, save_fp)
 
 def main():
