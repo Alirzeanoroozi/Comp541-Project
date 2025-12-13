@@ -71,7 +71,8 @@ class RegressionTrainer:
             self.optimizer.zero_grad()
             
             inputs, targets = batch
-            inputs = inputs.to(self.device)
+            # Note: inputs are sequences (strings), not tensors, so they don't need .to(device)
+            # The model's embedder will handle device placement internally
             targets = targets.to(self.device).float()
             outputs = self.model(inputs)
             
@@ -132,7 +133,8 @@ class RegressionTrainer:
         with torch.no_grad():
             for batch in loader:
                 inputs, targets = batch
-                inputs = inputs.to(self.device)
+                # Note: inputs are sequences (strings), not tensors, so they don't need .to(device)
+                # The model's embedder will handle device placement internally
                 targets = targets.to(self.device).float()
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, targets)

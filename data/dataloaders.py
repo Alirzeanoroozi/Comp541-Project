@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from data.loaders.unimodal_dataset import UnimodalDataset
 
 def get_loaders(name, batch_size=32, modality="RNA"): 
-    df = pd.read_csv(f"data/datasets/{name}.csv")
+    df = pd.read_csv(f"data/datasets/{name}_multimodal.csv")
 
     df["Value"] = df["Value"].astype(int)
     train_df = df[df["Split"] == "train"]
