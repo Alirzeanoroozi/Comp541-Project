@@ -2,7 +2,6 @@ import os
 import torch
 import pandas as pd
 from tqdm import tqdm
-from utils.load_config import load_config
 from models.rna_model import RNAFMEmbedder
 from models.protein_model import ESM2Embedder
 from models.dna_model import NucleotideTransformerEmbedder
@@ -44,6 +43,12 @@ def process_dataset_embedding(dataset, modality, output_folder, model, max_len):
         save_embedding(emb, save_fp)
 
 def main():
+    print("Calculating embeddings... using devices: ", DEVICE)
+    print("Datasets: ", DATASETS)
+    print("Modalities: ", MODALITIES)
+    print("Output folder: ", OUT_EMB_ROOT)
+    print("=" * 60)
+    
     for dataset in DATASETS:
         for modality in MODALITIES:
             if modality == 'RNA':

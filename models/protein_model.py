@@ -16,7 +16,13 @@ class ESM2Embedder(nn.Module):
             p.requires_grad = False
 
     def forward(self, seq):
-        tokens = self.tokenizer(seq, return_tensors="pt", padding="max_length", truncation=True, max_length=self.max_len).to(self.device)
-        out = self.model(**tokens)
-        emb = out.last_hidden_state.squeeze(0)
-        return emb
+        try:
+            tokens = self.tokenizer(seq, return_tensors="pt", padding="max_length", truncation=True, max_length=self.max_len).to(self.device)
+            out = self.model(**tokens)
+            emb = out.last_hidden_state.squeeze(0)
+            print(emb.shape)
+            return emb
+        except Exception as e:
+            print(f"Error: {e}")
+            print(f"Sequence: {seq}")
+            return None
