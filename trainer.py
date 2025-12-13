@@ -71,6 +71,7 @@ class RegressionTrainer:
             self.optimizer.zero_grad()
             
             seqs, embeddings, targets = batch
+            embeddings = embeddings.to(self.device)
             targets = targets.to(self.device).float()
             outputs = self.model(embeddings)
             

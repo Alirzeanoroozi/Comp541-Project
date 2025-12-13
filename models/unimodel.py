@@ -10,7 +10,11 @@ class UnimodalRegressionModel(nn.Module):
             nn.Linear(projection_dim, num_classes)
         )
     
-    def forward(self, embeddings):        
+    def forward(self, embeddings):   
+        print(embeddings.shape)
+        print(type(embeddings))
+        print(embeddings[0].shape)
+        print(type(embeddings[0]))
         batch_embeddings = []
         for embedding in embeddings:
             pooled = embedding.mean(dim=0)  # (D,)
