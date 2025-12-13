@@ -1,12 +1,12 @@
 import torch
+import sys
 
 from data.dataloaders import get_loaders
 from utils.load_config import load_config
 from models.unimodel import build_model
 from trainer import RegressionTrainer
 
-def main():
-    name = 'uni_rna'
+def main(name):
     config = load_config(f'{name}.yml')
 
     config['device'] = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -53,5 +53,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1:
+        name = sys.argv[1]
+    else:
+        name = 'uni_rna'
+    main(name)
 

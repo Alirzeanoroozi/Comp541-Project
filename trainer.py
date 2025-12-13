@@ -71,8 +71,6 @@ class RegressionTrainer:
             self.optimizer.zero_grad()
             
             inputs, targets = batch
-            # Note: inputs are sequences (strings), not tensors, so they don't need .to(device)
-            # The model's embedder will handle device placement internally
             targets = targets.to(self.device).float()
             outputs = self.model(inputs)
             
