@@ -10,9 +10,11 @@ def get_loaders(name, batch_size=32, modality="RNA"):
     val_df = df[df["Split"] == "val"]
     test_df = df[df["Split"] == "test"]
 
-    train_dataset = UnimodalDataset(sequences=train_df[modality].tolist(), labels=train_df["Value"].tolist())
-    val_dataset = UnimodalDataset(sequences=val_df[modality].tolist(), labels=val_df["Value"].tolist())
-    test_dataset = UnimodalDataset(sequences=test_df[modality].tolist(), labels=test_df["Value"].tolist())
+    embedding_folder = f"embeddings/{name}/{modality}"
+
+    train_dataset = UnimodalDataset(embedding_folder=embedding_folder, sequences=train_df[modality].tolist(), labels=train_df["Value"].tolist())
+    val_dataset = UnimodalDataset(embedding_folder=embedding_folder, sequences=val_df[modality].tolist(), labels=val_df["Value"].tolist())
+    test_dataset = UnimodalDataset(embedding_folder=embedding_folder, sequences=test_df[modality].tolist(), labels=test_df["Value"].tolist())
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)

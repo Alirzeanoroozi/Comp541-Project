@@ -1,15 +1,17 @@
-# loaders/rna_dataset.py
 import torch
 from torch.utils.data import Dataset
+import os
 
 class UnimodalDataset(Dataset):
-    def __init__(self, sequences, labels):
+    def __init__(self, embedding_folder, sequences, labels):
+        self.embedding_folder = embedding_folder
         self.sequences = sequences
         self.labels = labels
-
+        
     def __len__(self):
         return len(self.sequences)
 
     def __getitem__(self, idx):
         seq = self.sequences[idx]
-        return seq, torch.tensor(self.labels[idx])
+        embedding = torch.load(os.path.join(self.embedding_folder, f"seq{idx+1}.pt"))
+        return seq, embedding, torch.tensor(self.labels[idx])
