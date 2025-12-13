@@ -132,6 +132,7 @@ class RegressionTrainer:
         with torch.no_grad():
             for batch in loader:
                 seqs, embeddings, targets = batch
+                embeddings = embeddings.to(self.device)
                 targets = targets.to(self.device).float()
                 outputs = self.model(embeddings)
                 loss = self.criterion(outputs, targets)
