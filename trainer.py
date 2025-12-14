@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from scipy.stats import spearmanr
+from tqdm import tqdm
 
 class RegressionTrainer:
     def __init__(self, model, train_loader, val_loader, test_loader, device, save_dir, config):
@@ -17,7 +18,7 @@ class RegressionTrainer:
         
         self.optimizer = optim.Adam(
             model.parameters(),
-            lr=config.get('learning_rate', 1e-3),
+            lr=config.get('learning_rate', 3e-5),
             weight_decay=config.get('weight_decay', 1e-5)
         )
         
@@ -67,7 +68,7 @@ class RegressionTrainer:
         all_preds = []
         all_targets = []
         
-        for batch in self.train_loader:
+        for batch in tqdm(self.train_loader, desc="Training"):
             self.optimizer.zero_grad()
             
             seqs, embeddings, targets = batch
@@ -151,8 +152,6 @@ class RegressionTrainer:
         
         # Compute Spearman correlation
         try:
-            # print(all_targets)
-            # print(all_preds)
             spearman_corr, _ = spearmanr(all_targets, all_preds)
         except:
             print("Error in Spearman correlation")
