@@ -7,8 +7,8 @@
 #SBATCH --gres=gpu:tesla_t4:1 
 #SBATCH --time=72:00:00
 #SBATCH --mem=40G
-#SBATCH --output=logs/comp.log
-#SBATCH --error=logs/comp.err
+#SBATCH --output=logs/comp.out
+#SBATCH --error=logs/comp.out
 
 # Initialise environment and modules
 CONDA_BASE=$(conda info --base)
@@ -17,5 +17,5 @@ export LD_LIBRARY_PATH=${CONDA_BASE}/lib
 
 nvidia-smi
 
-# python -u "main.py" --name "uni_rna"
+# python -u "main.py" --name "uni_protein"
 # python calculate_embeddings.py
