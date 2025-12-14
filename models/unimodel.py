@@ -11,14 +11,17 @@ class UnimodalRegressionModel(nn.Module):
         )
     
     def forward(self, embeddings):  
-         
+        print(embeddings.shape)
         batch_embeddings = []
         for embedding in embeddings:
             pooled = embedding.mean(dim=0)  # (D,)
             batch_embeddings.append(pooled)
         batch_embeddings = torch.stack(batch_embeddings, dim=0)  # (B, D)
+        print(batch_embeddings.shape)
         # x: (B, D) - already batched and pooled
-        return self.net(batch_embeddings).squeeze(-1)  # (B,)
+        x = self.net(batch_embeddings).squeeze(-1)
+        print(x.shape)
+        return x  # (B,)
     
 def build_model(config):
     return UnimodalRegressionModel(input_dim=config['embedding_dim'], projection_dim=config['projection_dim'])
