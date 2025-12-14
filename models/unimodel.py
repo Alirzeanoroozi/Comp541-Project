@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 class UnimodalRegressionModel(nn.Module):
@@ -9,9 +10,13 @@ class UnimodalRegressionModel(nn.Module):
             nn.Linear(projection_dim, num_classes)
         )
     
-    def forward(self, embeddings):  
+    def forward(self, seqs, embeddings):  
         # embeddings: (B, L, D) --> (B, D)
-        pooled_embeddings = embeddings.mean(dim=1)  # (B, D)
+        pooled_embeddings = []
+        for seq, embedding in zip(seqs, embeddings):
+            embedding = embedding[len(seq)].mean(dim=0)  # (D,)
+            pooled_embeddings.append(embedding)
+        pooled_embeddings = torch.stack(pooled_embeddings, dim=0)  # (B, D)
         return self.net(pooled_embeddings).squeeze(-1)  # (B,)
     
 def build_model(config):

@@ -73,7 +73,7 @@ class RegressionTrainer:
             seqs, embeddings, targets = batch
             embeddings = embeddings.to(self.device)
             targets = targets.to(self.device).float()
-            outputs = self.model(embeddings)
+            outputs = self.model(seqs, embeddings)
             
             mse_loss = self.criterion(outputs, targets)
             
@@ -134,7 +134,7 @@ class RegressionTrainer:
                 seqs, embeddings, targets = batch
                 embeddings = embeddings.to(self.device)
                 targets = targets.to(self.device).float()
-                outputs = self.model(embeddings)
+                outputs = self.model(seqs, embeddings)
                 loss = self.criterion(outputs, targets)
                 
                 total_loss += loss.item()
