@@ -151,11 +151,11 @@ class RegressionTrainer:
         
         # Compute Spearman correlation
         try:
+            print(all_targets)
+            print(all_preds)
             spearman_corr, _ = spearmanr(all_targets, all_preds)
         except:
             print("Error in Spearman correlation")
-            print(all_targets)
-            print(all_preds)
             spearman_corr = 0.0
         
         avg_loss = total_loss / len(loader)
