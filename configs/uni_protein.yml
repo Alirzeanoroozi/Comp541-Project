@@ -1,6 +1,5 @@
 name: uni_protein
 modality: Protein
-Dataset: fungal_expression #  'mrna_stability', 'ecoli_proteins', 'cov_vaccine_degradation', 'fungal_expression'
 batch_size: 32
 epochs: 500
 max_len: 1024 # max length of the sequence
