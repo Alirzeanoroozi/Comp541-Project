@@ -1,0 +1,9 @@
+name: uni_dna     
+Dataset: fungal_expression
+modality: DNA        
+subset_percent: 0.01
+batch_size: 2
+epochs: 10
+max_len: 1022
+embedding_dim: 640   
+projection_dim: 256

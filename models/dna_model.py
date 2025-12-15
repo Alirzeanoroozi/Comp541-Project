@@ -11,17 +11,14 @@ class NucleotideTransformerEmbedder(nn.Module):
         self.device = device
         self.max_len = max_len
 
-        # DNABERT-2 requires trust_remote_code=True
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name,
-            trust_remote_code=True
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_name, trust_remote_code=True
         )
 
         self.model = AutoModel.from_pretrained(
-            model_name,
-            trust_remote_code=True
+            model_name, trust_remote_code=True
         ).to(device)
 
-        # Freeze model
         for p in self.model.parameters():
             p.requires_grad = False
 
@@ -37,11 +34,14 @@ class NucleotideTransformerEmbedder(nn.Module):
         with torch.no_grad():
             out = self.model(**tokens)
 
-        # DNABERT-2 returns tuple (hidden_states,)
+        # DNABERT-2 returns tuple, not ModelOutput
         if isinstance(out, tuple):
-            hidden = out[0]          # sequence embeddings
+            hidden = out[0]                 # (1, L, D)
         else:
-            hidden = out.last_hidden_state
+            hidden = out.last_hidden_state  # fallback (never hurts)
 
-        return hidden.squeeze(0)
+        hidden = hidden.squeeze(0)          # (L, D)
+
+        return hidden
+
 

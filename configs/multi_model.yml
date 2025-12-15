@@ -1,0 +1,25 @@
+name: multi_model     
+Dataset: fungal_expression
+modality: multi        
+modalities:
+  - dna
+  - rna
+  - protein
+
+dDNA: 768
+dRNA: 640
+dProt: 640
+  
+subset_percent: 0.01
+batch_size: 2
+epochs: 10
+max_len: 1022
+embedding_dim: 640   
+projection_dim: 256
+pretrained:
+  dna: checkpoints/uni_dna/best.pt
+  rna: checkpoints/uni_rna/best.pt
+  protein: checkpoints/uni_protein/best.pt
+
+freeze_encoders: true
+fusion_type: xattn 

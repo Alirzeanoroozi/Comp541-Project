@@ -6,7 +6,9 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from scipy.stats import spearmanr
-from tqdm import tqdm
+import time
+from collections import deque
+
 
 class RegressionTrainer:
     def __init__(self, model, train_loader, val_loader, test_loader, device, save_dir, config):
@@ -15,324 +17,195 @@ class RegressionTrainer:
         self.val_loader = val_loader
         self.test_loader = test_loader
         self.device = device
-        
+        self.config = config
+
         self.optimizer = optim.Adam(
             model.parameters(),
-            lr=config.get('learning_rate', 3e-5),
+            lr=config.get('learning_rate', 1e-3),
             weight_decay=config.get('weight_decay', 1e-5)
         )
-        
+
         self.criterion = nn.MSELoss()
-    
+
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer,
             mode='min',
             factor=0.5,
             patience=5
         )
-        
+
         # Early stopping
         self.early_stopping_patience = 20
         self.early_stopping_counter = 0
         self.best_val_loss_for_early_stop = float('inf')
-        
-        # Entropy regularization weight
-        self.entropy_lambda = 0.0
-        
-        # Create save directory
+
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
         self.plots_dir = self.save_dir / "plots"
         self.plots_dir.mkdir(exist_ok=True)
-        
-        # Training history
+
         self.history = {
-            'train_loss': [],
-            'val_loss': [],
-            'train_mse': [],
-            'val_mse': [],
-            'train_mae': [],
-            'val_mae': [],
-            'train_r2': [],
-            'val_r2': [],
-            'train_spearman': [],
-            'val_spearman': []
+            'train_loss': [], 'val_loss': [],
+            'train_mse': [], 'val_mse': [],
+            'train_mae': [], 'val_mae': [],
+            'train_r2': [], 'val_r2': [],
+            'train_spearman': [], 'val_spearman': []
         }
-        
+
         self.best_val_loss = float('inf')
         self.best_model_state = None
-        
-    def train_epoch(self):
+
+    # ------------------------------------------------------------------
+    # INTERNAL BATCH HANDLER (NEW)
+    # ------------------------------------------------------------------
+    def _forward_batch(self, batch):
+        if isinstance(batch, dict):
+            targets = batch["label"].to(self.device).float()
+            outputs = self.model(batch)
+        else:
+            inputs, targets = batch
+            targets = targets.to(self.device).float()
+            outputs = self.model(inputs)
+        return outputs, targets
+
+    # ------------------------------------------------------------------
+    # TRAIN EPOCH
+    # ------------------------------------------------------------------
+    def train_epoch(self, epoch):
         self.model.train()
         total_loss = 0.0
-        all_preds = []
-        all_targets = []
-        
-        for batch in tqdm(self.train_loader, desc="Training"):
+        all_preds, all_targets = [], []
+
+        num_batches = len(self.train_loader)
+        ema_batch_time = None
+        alpha = 0.1
+        last_time = time.time()
+
+        for batch_idx, batch in enumerate(self.train_loader, start=1):
+            now = time.time()
+            batch_time = now - last_time
+            last_time = now
+            ema_batch_time = batch_time if ema_batch_time is None else alpha * batch_time + (1 - alpha) * ema_batch_time
+
+            remaining_batches = num_batches - batch_idx
+            eta_seconds = remaining_batches * ema_batch_time
+            print(
+                f"\rEpoch {epoch}: Training batch {batch_idx}/{num_batches}"
+                f" — ETA: {int(eta_seconds//60)}m {int(eta_seconds%60)}s",
+                end=""
+            )
+
             self.optimizer.zero_grad()
-            
-            seqs, embeddings, targets = batch
-            embeddings = embeddings.to(self.device)
-            targets = targets.to(self.device).float()
-            outputs = self.model(seqs, embeddings)
-            
-            mse_loss = self.criterion(outputs, targets)
-            
-            entropy_loss = 0.0
-            if self.entropy_lambda > 0:
-                # Try to get entropy from model if it's a fusion model with attention
-                if hasattr(self.model, 'get_entropy'):
-                    entropy_loss = self.model.get_entropy()
-                # For MIL fusion, compute entropy from attention weights
-                elif hasattr(self.model, 'fusion') and hasattr(self.model.fusion, 'attn'):
-                    # This is a simplified entropy computation
-                    # In practice, you'd need to extract attention weights during forward pass
-                    pass
-            
-            loss = mse_loss + self.entropy_lambda * entropy_loss
-            
-            # Backward pass
+            outputs, targets = self._forward_batch(batch)
+
+            loss = self.criterion(outputs, targets)
             loss.backward()
             self.optimizer.step()
-            
-            # Track metrics
+
             total_loss += loss.item()
             all_preds.extend(outputs.detach().cpu().numpy())
             all_targets.extend(targets.detach().cpu().numpy())
-        
-        # Compute metrics
-        all_preds = np.array(all_preds)
-        all_targets = np.array(all_targets)
-        
-        mse = mean_squared_error(all_targets, all_preds)
-        mae = mean_absolute_error(all_targets, all_preds)
-        r2 = r2_score(all_targets, all_preds)
-        
-        # Compute Spearman correlation
+
+        print()
+
+        return self._compute_metrics(all_targets, all_preds, total_loss / num_batches)
+
+    # ------------------------------------------------------------------
+    # VALIDATE / TEST
+    # ------------------------------------------------------------------
+    def validate(self, loader):
+        self.model.eval()
+        total_loss = 0.0
+        all_preds, all_targets = [], []
+
+        with torch.no_grad():
+            for batch in loader:
+                outputs, targets = self._forward_batch(batch)
+                loss = self.criterion(outputs, targets)
+
+                total_loss += loss.item()
+                all_preds.extend(outputs.cpu().numpy())
+                all_targets.extend(targets.cpu().numpy())
+
+        return self._compute_metrics(all_targets, all_preds, total_loss / len(loader), return_preds=True)
+
+    # ------------------------------------------------------------------
+    # METRICS
+    # ------------------------------------------------------------------
+    def _compute_metrics(self, targets, preds, avg_loss, return_preds=False):
+        targets = np.array(targets)
+        preds = np.array(preds)
+
+        mse = mean_squared_error(targets, preds)
+        mae = mean_absolute_error(targets, preds)
+        r2 = r2_score(targets, preds)
+
         try:
-            spearman_corr, _ = spearmanr(all_targets, all_preds)
-        except:
+            spearman_corr, _ = spearmanr(targets, preds)
+        except Exception:
             spearman_corr = 0.0
-        
-        avg_loss = total_loss / len(self.train_loader)
-        
-        return {
+
+        out = {
             'loss': avg_loss,
             'mse': mse,
             'mae': mae,
             'r2': r2,
             'spearman': spearman_corr
         }
-    
-    def validate(self, loader):
-        self.model.eval()
-        total_loss = 0.0
-        all_preds = []
-        all_targets = []
-        
-        with torch.no_grad():
-            for batch in loader:
-                seqs, embeddings, targets = batch
-                embeddings = embeddings.to(self.device)
-                targets = targets.to(self.device).float()
-                outputs = self.model(seqs, embeddings)
-                loss = self.criterion(outputs, targets)
-                
-                total_loss += loss.item()
-                all_preds.extend(outputs.cpu().numpy())
-                all_targets.extend(targets.cpu().numpy())
-        
-        # Compute metrics
-        all_preds = np.array(all_preds)
-        all_targets = np.array(all_targets)
-        
-        mse = mean_squared_error(all_targets, all_preds)
-        mae = mean_absolute_error(all_targets, all_preds)
-        r2 = r2_score(all_targets, all_preds)
-        
-        # Compute Spearman correlation
-        try:
-            spearman_corr, _ = spearmanr(all_targets, all_preds)
-        except:
-            print("Error in Spearman correlation")
-            spearman_corr = 0.0
-        
-        avg_loss = total_loss / len(loader)
-        
-        return {
-            'loss': avg_loss,
-            'mse': mse,
-            'mae': mae,
-            'r2': r2,
-            'spearman': spearman_corr,
-            'predictions': all_preds,
-            'targets': all_targets
-        }
-    
+
+        if return_preds:
+            out['predictions'] = preds
+            out['targets'] = targets
+
+        return out
+
+    # ------------------------------------------------------------------
+    # TRAIN LOOP
+    # ------------------------------------------------------------------
     def train(self, epochs):
-        num_epochs = epochs or self.config.get('epochs', 30)
-        
-        print(f"Starting training for {num_epochs} epochs...")
+        print(f"Starting training for {epochs} epochs...")
         print(f"Device: {self.device}")
         print(f"Save directory: {self.save_dir}")
-        
-        for epoch in range(num_epochs):
-            # Train
-            train_metrics = self.train_epoch()
-            
-            # Validate
+
+        for epoch in range(epochs):
+            train_metrics = self.train_epoch(epoch + 1)
             val_metrics = self.validate(self.val_loader)
-            
-            # Update scheduler
+
             self.scheduler.step(val_metrics['loss'])
-            
-            # Update history
-            self.history['train_loss'].append(train_metrics['loss'])
-            self.history['val_loss'].append(val_metrics['loss'])
-            self.history['train_mse'].append(train_metrics['mse'])
-            self.history['val_mse'].append(val_metrics['mse'])
-            self.history['train_mae'].append(train_metrics['mae'])
-            self.history['val_mae'].append(val_metrics['mae'])
-            self.history['train_r2'].append(train_metrics['r2'])
-            self.history['val_r2'].append(val_metrics['r2'])
-            self.history['train_spearman'].append(train_metrics.get('spearman', 0.0))
-            self.history['val_spearman'].append(val_metrics.get('spearman', 0.0))
-            
-            # Save best model
+
+            for k in train_metrics:
+                self.history[f"train_{k}"].append(train_metrics[k])
+                self.history[f"val_{k}"].append(val_metrics[k])
+
             if val_metrics['loss'] < self.best_val_loss:
                 self.best_val_loss = val_metrics['loss']
                 self.best_model_state = self.model.state_dict().copy()
                 self.save_checkpoint(epoch, is_best=True)
-            
-            # Print progress
-            print(f"Epoch {epoch+1}/{num_epochs}")
-            print(f"  Train Loss: {train_metrics['loss']:.4f}, "
-                  f"MSE: {train_metrics['mse']:.4f}, "
-                  f"MAE: {train_metrics['mae']:.4f}, "
-                  f"R²: {train_metrics['r2']:.4f}, "
-                  f"Spearman: {train_metrics.get('spearman', 0.0):.4f}")
-            print(f"  Val Loss: {val_metrics['loss']:.4f}, "
-                  f"MSE: {val_metrics['mse']:.4f}, "
-                  f"MAE: {val_metrics['mae']:.4f}, "
-                  f"R²: {val_metrics['r2']:.4f}, "
-                  f"Spearman: {val_metrics.get('spearman', 0.0):.4f}")
-            
-            # Early stopping check
-            if val_metrics['loss'] < self.best_val_loss_for_early_stop:
-                self.best_val_loss_for_early_stop = val_metrics['loss']
-                self.early_stopping_counter = 0
-            else:
-                self.early_stopping_counter += 1
-                if self.early_stopping_counter >= self.early_stopping_patience:
-                    print(f"\nEarly stopping triggered after {epoch+1} epochs!")
-                    print(f"Best validation loss: {self.best_val_loss_for_early_stop:.4f}")
-                    break
-            
-            # Plot progress every 5 epochs or on last epoch
-            if (epoch + 1) % 5 == 0 or epoch == num_epochs - 1:
-                self.plot_training_curves()
-                self.plot_predictions(val_metrics['predictions'], 
-                                     val_metrics['targets'], 
-                                     epoch=epoch+1)
-        
-        # Load best model
+
+            print(f"\nEpoch {epoch+1}/{epochs}")
+            print(f"Train | Loss {train_metrics['loss']:.4f} | R² {train_metrics['r2']:.4f}")
+            print(f"Val   | Loss {val_metrics['loss']:.4f} | R² {val_metrics['r2']:.4f}")
+
+
         if self.best_model_state:
             self.model.load_state_dict(self.best_model_state)
-        
+
         print(f"\nTraining completed! Best validation loss: {self.best_val_loss:.4f}")
-        
-        # Final plots
+
+        # ✅ ADD THESE
         self.plot_training_curves()
-        final_val_metrics = self.validate(self.val_loader)
-        self.plot_predictions(final_val_metrics['predictions'], 
-                             final_val_metrics['targets'], 
-                             epoch='final')
-        
-        # Test evaluation if available
-        if self.test_loader:
-            test_metrics = self.validate(self.test_loader)
-            print(f"\nTest Results:")
-            print(f"  Loss: {test_metrics['loss']:.4f}")
-            print(f"  MSE: {test_metrics['mse']:.4f}")
-            print(f"  MAE: {test_metrics['mae']:.4f}")
-            print(f"  R²: {test_metrics['r2']:.4f}")
-            print(f"  Spearman: {test_metrics.get('spearman', 0.0):.4f}")
-            self.plot_predictions(test_metrics['predictions'], 
-                                 test_metrics['targets'], 
-                                 epoch='test')
-    
-    def plot_training_curves(self):
-        """Plot training and validation curves."""
-        epochs = range(1, len(self.history['train_loss']) + 1)
-        
-        fig, axes = plt.subplots(2, 2, figsize=(15, 10))
-        
-        # Loss curves
-        axes[0, 0].plot(epochs, self.history['train_loss'], 'b-', label='Train Loss')
-        axes[0, 0].plot(epochs, self.history['val_loss'], 'r-', label='Val Loss')
-        axes[0, 0].set_xlabel('Epoch')
-        axes[0, 0].set_ylabel('Loss')
-        axes[0, 0].set_title('Training and Validation Loss')
-        axes[0, 0].legend()
-        axes[0, 0].grid(True)
-        
-        # MSE curves
-        axes[0, 1].plot(epochs, self.history['train_mse'], 'b-', label='Train MSE')
-        axes[0, 1].plot(epochs, self.history['val_mse'], 'r-', label='Val MSE')
-        axes[0, 1].set_xlabel('Epoch')
-        axes[0, 1].set_ylabel('MSE')
-        axes[0, 1].set_title('Training and Validation MSE')
-        axes[0, 1].legend()
-        axes[0, 1].grid(True)
-        
-        # MAE curves
-        axes[1, 0].plot(epochs, self.history['train_mae'], 'b-', label='Train MAE')
-        axes[1, 0].plot(epochs, self.history['val_mae'], 'r-', label='Val MAE')
-        axes[1, 0].set_xlabel('Epoch')
-        axes[1, 0].set_ylabel('MAE')
-        axes[1, 0].set_title('Training and Validation MAE')
-        axes[1, 0].legend()
-        axes[1, 0].grid(True)
-        
-        # R² curves
-        axes[1, 1].plot(epochs, self.history['train_r2'], 'b-', label='Train R²')
-        axes[1, 1].plot(epochs, self.history['val_r2'], 'r-', label='Val R²')
-        axes[1, 1].set_xlabel('Epoch')
-        axes[1, 1].set_ylabel('R² Score')
-        axes[1, 1].set_title('Training and Validation R²')
-        axes[1, 1].legend()
-        axes[1, 1].grid(True)
-        
-        plt.tight_layout()
-        plt.savefig(self.plots_dir / 'training_curves.png', dpi=300, bbox_inches='tight')
-        plt.close()
-    
-    def plot_predictions(self, predictions, targets, epoch):
-        fig, axes = plt.subplots(1, 2, figsize=(15, 6))
-        
-        axes[0].scatter(targets, predictions, alpha=0.5, s=10)
-        min_val = min(targets.min(), predictions.min())
-        max_val = max(targets.max(), predictions.max())
-        axes[0].plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='Perfect Prediction')
-        axes[0].set_xlabel('Actual Values')
-        axes[0].set_ylabel('Predicted Values')
-        axes[0].set_title(f'Predictions vs Actual (Epoch {epoch})')
-        axes[0].legend()
-        axes[0].grid(True, alpha=0.3)
-        
-        residuals = predictions - targets
-        axes[1].scatter(targets, residuals, alpha=0.5, s=10)
-        axes[1].axhline(y=0, color='r', linestyle='--', lw=2)
-        axes[1].set_xlabel('Actual Values')
-        axes[1].set_ylabel('Residuals (Predicted - Actual)')
-        axes[1].set_title(f'Residual Plot (Epoch {epoch})')
-        axes[1].grid(True, alpha=0.3)
-        
-        plt.tight_layout()
-        epoch_str = f'epoch_{epoch}' if epoch else 'final'
-        plt.savefig(self.plots_dir / f'predictions_{epoch_str}.png', dpi=300, bbox_inches='tight')
-        plt.close()
-    
+
+        final_val = self.validate(self.val_loader)
+        self.plot_predictions(
+            final_val["predictions"],
+            final_val["targets"],
+            epoch="final"
+        )
+
+
+    # ------------------------------------------------------------------
+    # CHECKPOINTING
+    # ------------------------------------------------------------------
     def save_checkpoint(self, epoch, is_best):
         checkpoint = {
             'epoch': epoch,
@@ -341,27 +214,74 @@ class RegressionTrainer:
             'best_val_loss': self.best_val_loss,
             'history': self.history
         }
-        
-        if self.scheduler:
-            checkpoint['scheduler_state_dict'] = self.scheduler.state_dict()
-        
-        # Save regular checkpoint
-        checkpoint_path = self.save_dir / f'checkpoint_epoch_{epoch}.pt'
-        torch.save(checkpoint, checkpoint_path)
-        
-        # Save best model
-        if is_best:
-            best_path = self.save_dir / 'best_model.pt'
-            torch.save(checkpoint, best_path)
-            print(f"  Saved best model (val_loss: {self.best_val_loss:.4f})")
-    
-    def load_checkpoint(self, checkpoint_path):
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        if 'scheduler_state_dict' in checkpoint and self.scheduler:
-            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        self.best_val_loss = checkpoint.get('best_val_loss', float('inf'))
-        self.history = checkpoint.get('history', self.history)
-        return checkpoint['epoch']
 
+        torch.save(checkpoint, self.save_dir / f'checkpoint_epoch_{epoch}.pt')
+
+        if is_best:
+            torch.save(checkpoint, self.save_dir / 'best_model.pt')
+            print(f"  Saved best model (val_loss: {self.best_val_loss:.4f})")
+            
+            
+    # ------------------------------------------------------------------
+    # PLOTTING
+    # ------------------------------------------------------------------
+    def plot_training_curves(self):
+        epochs = range(1, len(self.history['train_loss']) + 1)
+
+        fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+
+        axes[0, 0].plot(epochs, self.history['train_loss'], label='Train')
+        axes[0, 0].plot(epochs, self.history['val_loss'], label='Val')
+        axes[0, 0].set_title('Loss')
+        axes[0, 0].legend()
+        axes[0, 0].grid(True)
+
+        axes[0, 1].plot(epochs, self.history['train_mse'], label='Train')
+        axes[0, 1].plot(epochs, self.history['val_mse'], label='Val')
+        axes[0, 1].set_title('MSE')
+        axes[0, 1].legend()
+        axes[0, 1].grid(True)
+
+        axes[1, 0].plot(epochs, self.history['train_mae'], label='Train')
+        axes[1, 0].plot(epochs, self.history['val_mae'], label='Val')
+        axes[1, 0].set_title('MAE')
+        axes[1, 0].legend()
+        axes[1, 0].grid(True)
+
+        axes[1, 1].plot(epochs, self.history['train_r2'], label='Train')
+        axes[1, 1].plot(epochs, self.history['val_r2'], label='Val')
+        axes[1, 1].set_title('R²')
+        axes[1, 1].legend()
+        axes[1, 1].grid(True)
+
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / "training_curves.png", dpi=300)
+        plt.close()
+
+    def plot_predictions(self, predictions, targets, epoch):
+        fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+        axes[0].scatter(targets, predictions, alpha=0.5)
+        min_v = min(targets.min(), predictions.min())
+        max_v = max(targets.max(), predictions.max())
+        axes[0].plot([min_v, max_v], [min_v, max_v], 'r--')
+        axes[0].set_title("Predicted vs Actual")
+        axes[0].set_xlabel("Actual")
+        axes[0].set_ylabel("Predicted")
+
+        residuals = predictions - targets
+        axes[1].scatter(targets, residuals, alpha=0.5)
+        axes[1].axhline(0, color='r', linestyle='--')
+        axes[1].set_title("Residuals")
+
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / f"predictions_{epoch}.png", dpi=300)
+        plt.close()
+
+    def load_checkpoint(self, path):
+        ckpt = torch.load(path, map_location=self.device)
+        self.model.load_state_dict(ckpt['model_state_dict'])
+        self.optimizer.load_state_dict(ckpt['optimizer_state_dict'])
+        self.history = ckpt.get('history', self.history)
+        self.best_val_loss = ckpt.get('best_val_loss', float('inf'))
+            

@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 
 class FusionCrossAttention(nn.Module):
+    
     """
     Cross-modal Multi-Head Attention Fusion
     Implements BioLangFusion Section 2.2.3 exactly.
@@ -18,14 +19,12 @@ class FusionCrossAttention(nn.Module):
     Output:
         Z_fused: (T', d_model) — final fused representation.
     """
-
+    
     def __init__(self, dDNA, dRNA, dProt, d_model, num_heads):
-        """
-        dDNA, dRNA, dProt : input embedding dims
-        d_model           : shared dimension after projection
-        num_heads         : multi-head attention heads
-        """
         super().__init__()
+
+        self.d_model = d_model
+        self.output_dim = d_model   # ✅ REQUIRED LINE
 
         # -------------------------------------------------------------
         # (1) Project modalities to shared space H_m ∈ R^{T' × d_model}

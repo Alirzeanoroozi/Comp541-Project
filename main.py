@@ -1,12 +1,12 @@
 import torch
-import argparse
 
 from data.dataloaders import get_loaders
 from utils.load_config import load_config
 from models.unimodel import build_model
 from trainer import RegressionTrainer
 
-def main(name):
+def main():
+    name = 'uni_rna'
     config = load_config(f'{name}.yml')
 
     config['device'] = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -36,7 +36,7 @@ def main(name):
         val_loader=val_loader,
         test_loader=test_loader,
         device=config['device'],
-        save_dir=f"./checkpoints/{config['name']}/{config['Dataset']}",
+        save_dir=f"./checkpoints/{config['name']}/{config['modality']}",
         config=config
     )
     
@@ -52,13 +52,4 @@ def main(name):
     print("=" * 60)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train unimodal model")
-    parser.add_argument(
-        "--name",
-        type=str,
-        default="uni_rna",
-        help="Name of config file (without .yml extension) to use. Default: uni_rna"
-    )
-    args = parser.parse_args()
-    main(args.name)
-
+    main()

@@ -1,8 +1,9 @@
-name: uni_protein
-modality: Protein
-Dataset: fungal_expression #  'mrna_stability', 'ecoli_proteins', 'cov_vaccine_degradation', 'fungal_expression'
-batch_size: 32
-epochs: 500
-max_len: 1024 # max length of the sequence
-projection_dim: 600 # dimension of the projection head
-embedding_dim: 640 # dimension of the embedding
+name: uni_protein     
+Dataset: fungal_expression
+modality: Protein        
+subset_percent: 0.01
+batch_size: 2
+epochs: 10
+max_len: 1022
+embedding_dim: 640   
+projection_dim: 256
