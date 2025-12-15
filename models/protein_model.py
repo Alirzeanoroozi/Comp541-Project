@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from transformers import AutoTokenizer, AutoModel
 
@@ -16,13 +17,21 @@ class ESM2Embedder(nn.Module):
             p.requires_grad = False
 
     def forward(self, seq):
-        try:
-            tokens = self.tokenizer(seq, return_tensors="pt", padding="max_length", truncation=True, max_length=self.max_len).to(self.device)
+        tokens = self.tokenizer(
+            seq,
+            return_tensors="pt",
+            truncation=True,
+            max_length=self.max_len,
+            padding=False      # ✅ NO padding
+        ).to(self.device)
+
+        with torch.no_grad():
             out = self.model(**tokens)
-            emb = out.last_hidden_state.squeeze(0)
-            print(emb.shape)
-            return emb
-        except Exception as e:
-            print(f"Error: {e}")
-            print(f"Sequence: {seq}")
-            return None
+
+        emb = out.last_hidden_state.squeeze(0)  # (L, D)
+
+        # Optional: remove BOS/EOS
+        if emb.shape[0] >= 2:
+            emb = emb[1:-1]
+
+        return emb

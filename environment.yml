@@ -1,4 +1,4 @@
-name: comp
+name: bio-lang-mml
 channels:
   - pytorch
   - nvidia
@@ -6,9 +6,12 @@ channels:
   - defaults
 
 dependencies:
-  - python=3.12
+  - python=3.10
   - pip
+  - cudatoolkit=11.8        # if you use GPU; remove on CPU-only Mac
   - pytorch=2.1
+  - torchvision
+  - torchaudio
 
   # Core scientific stack
   - numpy
@@ -26,6 +29,13 @@ dependencies:
 
   # Install pip packages
   - pip:
-    - rna-fm
-    - transformers
-
+      - transformers>=4.40.0
+      - tokenizers
+      - einops
+      - sentencepiece
+      - datasets
+      - accelerate
+      - huggingface-hub
+      - biopython
+      - torchinfo
+      - tensorboard

@@ -1,7 +1,3 @@
-# Installation
-conda env create --file environment.yml
-----
-
 (i) codon-level embedding concatenation,
 (ii) entropy-regularized attention pooling inspired by multiple-instance learning
 (iii) crossmodal multi-head attention—
