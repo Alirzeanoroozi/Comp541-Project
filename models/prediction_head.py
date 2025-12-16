@@ -13,14 +13,14 @@ class TextCNNHead(nn.Module):
         self.fc = nn.Linear(128 * 3, 1)
 
     def forward(self, x):
-        # x: (L, d)
-        x = x.transpose(0, 1).unsqueeze(0)
+        # x: (B, L, D)
+        x = x.transpose(1, 2)
 
         c1 = F.relu(self.conv1(x)).max(dim=-1)[0]
         c2 = F.relu(self.conv2(x)).max(dim=-1)[0]
         c3 = F.relu(self.conv3(x)).max(dim=-1)[0]
 
-        feat = torch.cat([c1, c2, c3], dim=-1)
+        feat = torch.cat([c1, c2, c3], dim=-1) # (B, 1)
 
         return self.fc(feat)
 
