@@ -1,4 +1,4 @@
 name: uni_dna
 modality: DNA
 projection_dim: 600 # dimension of the projection head
-embedding_dim: 4107 # dimension of the embedding
+embedding_dim: 512 # dimension of the embedding

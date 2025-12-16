@@ -14,7 +14,7 @@ class ESM2Embedder(nn.Module):
         self.model.eval()
         
     def forward(self, seq):
-        tokens = self.tokenizer(seq, return_tensors="pt").to(self.device)
+        tokens = self.tokenizer(seq, return_tensors="pt", padding=True, truncation=True, max_length=1024).to(self.device)
         with torch.no_grad():
             out = self.model(**tokens)
         return out.last_hidden_state.squeeze(0)
