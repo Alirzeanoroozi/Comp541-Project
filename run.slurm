@@ -2,9 +2,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --partition=cosbi
-#SBATCH --account=cosbi
-#SBATCH --gres=gpu:tesla_t4:1 
+#SBATCH --partition=kutem_gpu
+#SBATCH --account=kutem
+#SBATCH --gres=gpu:tesla_a100:1
 #SBATCH --time=72:00:00
 #SBATCH --mem=40G
 #SBATCH --output=logs/comp.out
@@ -17,5 +17,8 @@ export LD_LIBRARY_PATH=${CONDA_BASE}/lib
 
 nvidia-smi
 
+# python -u "main.py" --name "uni_rna"
 # python -u "main.py" --name "uni_protein"
-# python calculate_embeddings.py
+# python -u "main.py" --name "uni_dna"
+
+python calculate_embeddings.py

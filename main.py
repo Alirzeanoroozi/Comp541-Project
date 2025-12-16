@@ -8,19 +8,6 @@ from trainer import RegressionTrainer
 
 def main(name):
     config = load_config(f'{name}.yml')
-    if "uni" in name:
-        if "rna" in name:
-            config['modality'] = 'RNA'
-            config['max_len'] = 1000
-            config['embedding_dim'] = 640
-        elif "protein" in name:
-            config['modality'] = 'Protein'
-            config['max_len'] = 1024
-            config['embedding_dim'] = 320
-        elif "dna" in name:
-            config['modality'] = 'DNA'
-            config['max_len'] = 512
-            config['embedding_dim'] = 4107
     config['Dataset'] = 'fungal_expression' #  'mrna_stability', 'ecoli_proteins', 'cov_vaccine_degradation', 'fungal_expression'
     config['device'] = 'cuda' if torch.cuda.is_available() else 'cpu'
     
@@ -29,13 +16,11 @@ def main(name):
     print(f"  Name: {config['name']}")
     print(f"  Dataset: {config['Dataset']}")
     print(f"  Modality: {config['modality']}")
-    print(f"  Batch Size: {config['batch_size']}")
-    print(f"  Epochs: {config['epochs']}")
     print("=" * 60)
     
     # Load data
     print("\nLoading data...")
-    train_loader, val_loader, test_loader = get_loaders(config['Dataset'], config['batch_size'], modality=config['modality'])
+    train_loader, val_loader, test_loader = get_loaders(config['Dataset'], 32, modality=config['modality'])
     
     # Initialize model
     print("\nInitializing model...")

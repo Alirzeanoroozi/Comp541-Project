@@ -1,7 +1,4 @@
 name: uni_rna
 modality: RNA
-batch_size: 32
-epochs: 500
-max_len: 1000 # max length of the sequence
 projection_dim: 600 # dimension of the projection head
 embedding_dim: 640 # dimension of the embedding

@@ -19,7 +19,7 @@ class RegressionTrainer:
         self.optimizer = optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-5)
         self.criterion = nn.MSELoss()
     
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.5, patience=5)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=5)
         
         # Early stopping
         self.early_stopping_patience = 20
@@ -93,7 +93,7 @@ class RegressionTrainer:
         all_targets = []
         
         with torch.no_grad():
-            for batch in loader:
+            for batch in tqdm(loader, desc="Validating"):
                 seqs, embeddings, targets = batch
                 embeddings = embeddings.to(self.device)
                 targets = targets.to(self.device).float()
@@ -184,47 +184,45 @@ class RegressionTrainer:
         final_val_metrics = self.validate(self.val_loader)
         self.plot_predictions(final_val_metrics['predictions'], final_val_metrics['targets'], epoch='final')
         
-        # Test evaluation if available
-        if self.test_loader:
-            test_metrics = self.validate(self.test_loader)
-            print(f"\nTest Results:")
-            print(f"  Loss: {test_metrics['loss']:.4f}")
-            print(f"  MSE: {test_metrics['mse']:.4f}")
-            print(f"  Spearman: {test_metrics.get('spearman', 0.0):.4f}")
-            self.plot_predictions(test_metrics['predictions'], test_metrics['targets'], epoch='test')
+        test_metrics = self.validate(self.test_loader)
+        print(f"\nTest Results:")
+        print(f"  Loss: {test_metrics['loss']:.4f}")
+        print(f"  MSE: {test_metrics['mse']:.4f}")
+        print(f"  Spearman: {test_metrics.get('spearman', 0.0):.4f}")
+        self.plot_predictions(test_metrics['predictions'], test_metrics['targets'], epoch='test')
     
     def plot_training_curves(self):
         """Plot training and validation curves."""
         epochs = range(1, len(self.history['train_loss']) + 1)
         
-        fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+        fig, axes = plt.subplots(1, 3, figsize=(15, 10))
         
         # Loss curves
-        axes[0, 0].plot(epochs, self.history['train_loss'], 'b-', label='Train Loss')
-        axes[0, 0].plot(epochs, self.history['val_loss'], 'r-', label='Val Loss')
-        axes[0, 0].set_xlabel('Epoch')
-        axes[0, 0].set_ylabel('Loss')
-        axes[0, 0].set_title('Training and Validation Loss')
-        axes[0, 0].legend()
-        axes[0, 0].grid(True)
+        axes[0].plot(epochs, self.history['train_loss'], 'b-', label='Train Loss')
+        axes[0].plot(epochs, self.history['val_loss'], 'r-', label='Val Loss')
+        axes[0].set_xlabel('Epoch')
+        axes[0].set_ylabel('Loss')
+        axes[0].set_title('Training and Validation Loss')
+        axes[0].legend()
+        axes[0].grid(True)
         
         # MSE curves
-        axes[0, 1].plot(epochs, self.history['train_mse'], 'b-', label='Train MSE')
-        axes[0, 1].plot(epochs, self.history['val_mse'], 'r-', label='Val MSE')
-        axes[0, 1].set_xlabel('Epoch')
-        axes[0, 1].set_ylabel('MSE')
-        axes[0, 1].set_title('Training and Validation MSE')
-        axes[0, 1].legend()
-        axes[0, 1].grid(True)
+        axes[1].plot(epochs, self.history['train_mse'], 'b-', label='Train MSE')
+        axes[1].plot(epochs, self.history['val_mse'], 'r-', label='Val MSE')
+        axes[1].set_xlabel('Epoch')
+        axes[1].set_ylabel('MSE')
+        axes[1].set_title('Training and Validation MSE')
+        axes[1].legend()
+        axes[1].grid(True)
         
         # Spearman curves
-        axes[1, 0].plot(epochs, self.history['train_spearman'], 'b-', label='Train Spearman')
-        axes[1, 0].plot(epochs, self.history['val_spearman'], 'r-', label='Val Spearman')
-        axes[1, 0].set_xlabel('Epoch')
-        axes[1, 0].set_ylabel('Spearman')
-        axes[1, 0].set_title('Training and Validation Spearman')
-        axes[1, 0].legend()
-        axes[1, 0].grid(True)
+        axes[2].plot(epochs, self.history['train_spearman'], 'b-', label='Train Spearman')
+        axes[2].plot(epochs, self.history['val_spearman'], 'r-', label='Val Spearman')
+        axes[2].set_xlabel('Epoch')
+        axes[2].set_ylabel('Spearman')
+        axes[2].set_title('Training and Validation Spearman')
+        axes[2].legend()
+        axes[2].grid(True)
         
         plt.tight_layout()
         plt.savefig(self.plots_dir / 'training_curves.png', dpi=300, bbox_inches='tight')

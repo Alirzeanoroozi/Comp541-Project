@@ -10,7 +10,6 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 DATASETS = [
     "fungal_expression",
-    # Add more datasets as needed, e.g.:
     # "mrna_stability",
     # "ecoli_proteins",
     # "cov_vaccine_degradation"
@@ -18,8 +17,8 @@ DATASETS = [
 
 MODALITIES = [
     'Protein',
-    # 'RNA',
-    # 'DNA'
+    'RNA',
+    'DNA'
 ]
 
 OUT_EMB_ROOT = "embeddings"
@@ -51,17 +50,13 @@ def main():
     for dataset in DATASETS:
         for modality in MODALITIES:
             if modality == 'RNA':
-                max_len = 1000
-                embedder = RNAFMEmbedder(max_len=max_len, device=DEVICE)
+                embedder = RNAFMEmbedder(device=DEVICE)
             elif modality == 'Protein':
-                max_len = 1024
-                embedder = ESM2Embedder(max_len=max_len, device=DEVICE)
+                embedder = ESM2Embedder(device=DEVICE)
             elif modality == 'DNA':
-                max_len = 512
-                embedder = NucleotideTransformerEmbedder(max_len=max_len, device=DEVICE)
+                embedder = NucleotideTransformerEmbedder(device=DEVICE)
             else:
                 raise ValueError(f"Invalid modality: {modality}")
-            embedder.eval()
             out_folder = os.path.join(OUT_EMB_ROOT, dataset, modality)
             os.makedirs(out_folder, exist_ok=True)
             process_dataset_embedding(dataset, modality, out_folder, embedder)

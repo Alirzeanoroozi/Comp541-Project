@@ -14,8 +14,7 @@ class UnimodalRegressionModel(nn.Module):
         # embeddings: (B, L, D) --> (B, D)
         pooled_embeddings = []
         for seq, embedding in zip(seqs, embeddings):
-            max_len = max(len(seq), embedding.shape[0])
-            embedding = embedding[:max_len].mean(dim=0)  # (D,)
+            embedding = embedding[:len(seq)].mean(dim=0)  # (D,)
             pooled_embeddings.append(embedding)
         pooled_embeddings = torch.stack(pooled_embeddings, dim=0)  # (B, D)
         return self.net(pooled_embeddings).squeeze(-1)  # (B,)
