@@ -29,8 +29,6 @@ class RegressionTrainer:
         # Create save directory
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
-        self.plots_dir = self.save_dir / "plots"
-        self.plots_dir.mkdir(exist_ok=True)
         
         # Training history
         self.history = {
@@ -225,7 +223,7 @@ class RegressionTrainer:
         axes[2].grid(True)
         
         plt.tight_layout()
-        plt.savefig(self.plots_dir / 'training_curves.png', dpi=300, bbox_inches='tight')
+        plt.savefig(self.save_dir / 'training_curves.png', dpi=300, bbox_inches='tight')
         plt.close()
     
     def plot_predictions(self, predictions, targets, epoch):
@@ -251,5 +249,5 @@ class RegressionTrainer:
         
         plt.tight_layout()
         epoch_str = f'epoch_{epoch}' if epoch else 'final'
-        plt.savefig(self.plots_dir / f'predictions_{epoch_str}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(self.save_dir / f'predictions_{epoch_str}.png', dpi=300, bbox_inches='tight')
         plt.close()
