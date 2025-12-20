@@ -41,7 +41,7 @@ def main(name, dataset):
         val_loader=val_loader,
         test_loader=test_loader,
         device=config['device'],
-        save_dir=f"./checkpoints/{config['name']}/{config['Dataset']}",
+        save_dir=f"./plots/{config['name']}/{config['Dataset']}",
     )
     
     # Start training
