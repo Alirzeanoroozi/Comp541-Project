@@ -17,8 +17,6 @@ export LD_LIBRARY_PATH=${CONDA_BASE}/lib
 
 nvidia-smi
 
-# python -u "main.py" --name "uni_rna"
+python -u "main.py" --name "uni_rna" --dataset "fungal_expression"
 # python -u "main.py" --name "uni_protein"
 # python -u "main.py" --name "uni_dna"
-
-python calculate_embeddings.py
