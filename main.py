@@ -1,15 +1,22 @@
 import torch
 import argparse
+import os
 
 from data.dataloaders import get_loaders
 from utils.load_config import load_config
+from utils.calculate_embeddings import calculate_embeddings
 from models.unimodel import build_model
 from trainer import RegressionTrainer
 
-def main(name):
+def main(name, dataset):
     config = load_config(f'{name}.yml')
-    config['Dataset'] = 'fungal_expression' #  'mrna_stability', 'ecoli_proteins', 'cov_vaccine_degradation', 'fungal_expression'
+    config['Dataset'] = dataset
     config['device'] = 'cuda' if torch.cuda.is_available() else 'cpu'
+    
+    # check if the embeddings are calculated
+    if not os.path.exists(f"embeddings/{config['Dataset']}/{config['modality']}"):
+        print("Embeddings not found, calculating...")
+        calculate_embeddings(config['Dataset'], config['modality'])
     
     print("=" * 60)
     print("Training Configuration:")
@@ -56,6 +63,12 @@ if __name__ == "__main__":
         default="uni_rna",
         help="Name of config file (without .yml extension) to use. Default: uni_rna"
     )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="fungal_expression",
+        help="Dataset to use. Default: fungal_expression. Options: 'mrna_stability', 'ecoli_proteins', 'cov_vaccine_degradation', 'fungal_expression'"
+    )
     args = parser.parse_args()
-    main(args.name)
+    main(args.name, args.dataset)
 

@@ -2,11 +2,6 @@ from pathlib import Path
 import argparse
 import pandas as pd
 
-"""
-Adds DNA and Protein columns to CSV, renames 'Sequence' column to 'RNA'.
-always translates in frame-0, no start/stop logic
-"""
-
 GENETIC_CODE = {
     "UUU": "F", "UUC": "F",
     "UUA": "L", "UUG": "L", "CUU": "L", "CUC": "L", "CUA": "L", "CUG": "L",
