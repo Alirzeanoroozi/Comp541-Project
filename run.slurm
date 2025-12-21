@@ -17,7 +17,7 @@ export LD_LIBRARY_PATH=${CONDA_BASE}/lib
 
 nvidia-smi
 
-python -u "data/rna_converter.py"
+# python -u "data/rna_converter.py"
 
 python -u "main.py" --name "uni_rna" --dataset "fungal_expression"
 # python -u "main.py" --name "uni_protein"

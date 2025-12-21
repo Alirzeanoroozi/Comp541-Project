@@ -12,9 +12,9 @@ def get_loaders(name, batch_size=32, modality="RNA"):
 
     embedding_folder = f"embeddings/{name}/{modality}"
 
-    train_dataset = UnimodalDataset(embedding_folder=embedding_folder, sequences=train_df[modality].tolist(), labels=train_df["Value"].tolist())
-    val_dataset = UnimodalDataset(embedding_folder=embedding_folder, sequences=val_df[modality].tolist(), labels=val_df["Value"].tolist())
-    test_dataset = UnimodalDataset(embedding_folder=embedding_folder, sequences=test_df[modality].tolist(), labels=test_df["Value"].tolist())
+    train_dataset = UnimodalDataset(embedding_folder=embedding_folder, sequences=train_df[modality].tolist(), labels=train_df["Value"].tolist(), ids=train_df["id"].tolist())
+    val_dataset = UnimodalDataset(embedding_folder=embedding_folder, sequences=val_df[modality].tolist(), labels=val_df["Value"].tolist(), ids=val_df["id"].tolist())
+    test_dataset = UnimodalDataset(embedding_folder=embedding_folder, sequences=test_df[modality].tolist(), labels=test_df["Value"].tolist(), ids=test_df["id"].tolist())
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
