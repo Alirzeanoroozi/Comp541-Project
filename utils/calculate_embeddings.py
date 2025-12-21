@@ -37,6 +37,9 @@ def calculate_embeddings(dataset, modality, device):
     
     max_len = get_max_len(dataset, modality)
     print("Max length: ", max_len)
+    if max_len > 1024:
+        print("Warning: Max length is greater than 1024, which is the maximum length supported by the model.")
+        max_len = 1024
     print("=" * 60)
 
     if modality == 'RNA':
