@@ -36,6 +36,8 @@ def calculate_embeddings(dataset, modality, device):
     print("=" * 60)
     
     max_len = get_max_len(dataset, modality)
+    print("Max length: ", max_len)
+    print("=" * 60)
 
     if modality == 'RNA':
         embedder = RNAFMEmbedder(device=device, max_len=max_len)
