@@ -1,6 +1,6 @@
-from pathlib import Path
-import argparse
 import pandas as pd
+from tqdm import tqdm
+from pathlib import Path
 
 GENETIC_CODE = {
     "UUU": "F", "UUC": "F",
@@ -26,18 +26,13 @@ GENETIC_CODE = {
     "UAA": "*", "UAG": "*", "UGA": "*",
 }
 
-
 def clean_mrna(seq: str) -> str:
     """Uppercase, keep A/C/G/U, convert T → U."""
-    if not isinstance(seq, str):
-        return ""
     seq = seq.upper().replace("T", "U")
     return "".join(b for b in seq if b in {"A", "C", "G", "U"})
 
-
 def mrna_to_dna(mrna: str) -> str:
     return mrna.replace("U", "T")
-
 
 def translate_frame0(mrna: str) -> str:
     """
@@ -49,7 +44,6 @@ def translate_frame0(mrna: str) -> str:
         codon = mrna[i:i + 3]
         aa.append(GENETIC_CODE.get(codon, "X"))
     return "".join(aa)
-
 
 def process_csv_file(path: Path) -> None:
     """
@@ -73,6 +67,8 @@ def process_csv_file(path: Path) -> None:
 
     # Protein (always frame-0)
     df["Protein"] = df["RNA"].apply(translate_frame0)
+    
+    df['id'] = [f"seq{i+1}" for i in range(len(df))]
 
     # Reorder columns
     cols = ["DNA", "Protein", "RNA"] + [
@@ -84,25 +80,13 @@ def process_csv_file(path: Path) -> None:
     df.to_csv(out_path, index=False)
     print(f"  -> wrote {out_path.name}")
 
-
 def main():
-    parser = argparse.ArgumentParser(description="Convert RNA CSVs to multimodal CSVs (frame-0 translation).")
-    parser.add_argument("input_dir", type=str, help="Folder with .csv files.")
+    input_dir = Path("data/datasets")
 
-    args = parser.parse_args()
-    input_dir = Path(args.input_dir)
+    csv_files = sorted([f for f in input_dir.glob("*.csv") if "multimodal" not in f.name])
 
-    if not input_dir.is_dir():
-        raise NotADirectoryError(input_dir)
-
-    csv_files = sorted(input_dir.glob("*.csv"))
-    if not csv_files:
-        print(f"No CSV files in {input_dir}")
-        return
-
-    for csv_path in csv_files:
+    for csv_path in tqdm(csv_files, desc="Processing CSV files"):
         process_csv_file(csv_path)
-
 
 if __name__ == "__main__":
     main()

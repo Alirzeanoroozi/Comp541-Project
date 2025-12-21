@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=8
 #SBATCH --partition=kutem_gpu
 #SBATCH --account=kutem
 #SBATCH --gres=gpu:tesla_a100:1
@@ -16,6 +16,8 @@ source ${CONDA_BASE}/bin/activate comp
 export LD_LIBRARY_PATH=${CONDA_BASE}/lib
 
 nvidia-smi
+
+python -u "data/rna_converter.py"
 
 python -u "main.py" --name "uni_rna" --dataset "fungal_expression"
 # python -u "main.py" --name "uni_protein"
