@@ -7,6 +7,7 @@ from pathlib import Path
 from sklearn.metrics import mean_squared_error
 from scipy.stats import spearmanr
 from tqdm import tqdm
+import pandas as pd
 
 class RegressionTrainer:
     def __init__(self, model, train_loader, val_loader, test_loader, device, save_dir):
@@ -181,6 +182,8 @@ class RegressionTrainer:
         print(f"  MSE: {test_metrics['mse']:.4f}")
         print(f"  Spearman: {test_metrics.get('spearman', 0.0):.4f}")
         self.plot_predictions(test_metrics['predictions'], test_metrics['targets'], epoch='test')
+        self.save_values(final_val_metrics, epoch='final')
+        self.save_values(test_metrics, epoch='test')
     
     def plot_training_curves(self):
         """Plot training and validation curves."""
@@ -244,3 +247,13 @@ class RegressionTrainer:
         epoch_str = f'epoch_{epoch}' if epoch else 'final'
         plt.savefig(self.save_dir / f'predictions_{epoch_str}.png', dpi=300, bbox_inches='tight')
         plt.close()
+
+    def save_values(self, metrics, epoch):
+        predictions = metrics.get("predictions")
+        targets = metrics.get("targets")
+        if predictions is not None and targets is not None:
+            df = pd.DataFrame({
+                "predictions": predictions,
+                "targets": targets
+            })
+            df.to_csv(self.save_dir / f"{epoch}_predictions_vs_targets.csv", index=False)
