@@ -6,7 +6,7 @@ class ESM2Embedder(nn.Module):
     def __init__(self, device, max_len):
         super().__init__()
         self.device = device
-
+        self.max_len = max_len
         self.tokenizer = AutoTokenizer.from_pretrained("facebook/esm2_t6_8M_UR50D")
         self.model = AutoModel.from_pretrained("facebook/esm2_t6_8M_UR50D").to(device)
         self.model.eval()
