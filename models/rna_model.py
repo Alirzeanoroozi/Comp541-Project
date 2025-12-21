@@ -3,7 +3,7 @@ import torch.nn as nn
 import fm
 
 class RNAFMEmbedder(nn.Module):
-    def __init__(self, device, max_len=128):
+    def __init__(self, device, max_len):
         super().__init__()
         self.device = device
         self.max_len = max_len

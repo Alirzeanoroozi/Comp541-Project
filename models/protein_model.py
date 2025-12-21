@@ -3,7 +3,7 @@ import torch.nn as nn
 from transformers import AutoTokenizer, AutoModel
 
 class ESM2Embedder(nn.Module):
-    def __init__(self, device="cpu"):
+    def __init__(self, device, max_len):
         super().__init__()
         self.device = device
 
@@ -12,7 +12,7 @@ class ESM2Embedder(nn.Module):
         self.model.eval()
         
     def forward(self, seq):
-        tokens = self.tokenizer(seq, return_tensors="pt", padding="max_length", truncation=True, max_length=1024).to(self.device)
+        tokens = self.tokenizer(seq, return_tensors="pt", padding="max_length", truncation=True, max_length=self.max_len).to(self.device)
         with torch.no_grad():
             out = self.model(**tokens)
         return out.last_hidden_state.squeeze(0)

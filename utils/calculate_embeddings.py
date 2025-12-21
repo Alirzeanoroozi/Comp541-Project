@@ -6,6 +6,11 @@ from models.rna_model import RNAFMEmbedder
 from models.protein_model import ESM2Embedder
 from models.dna_model import NucleotideTransformerEmbedder
 
+def get_max_len(dataset, modality):
+    df = pd.read_csv(f"data/datasets/{dataset}_multimodal.csv")
+    seqs = df[modality].tolist()
+    return max(len(seq) for seq in seqs)
+
 def read_sequences_from_file(file_path, modality):
     df = pd.read_csv(file_path)
     seqs = df[modality].tolist()
@@ -29,13 +34,15 @@ def process_dataset_embedding(dataset, modality, model):
 def calculate_embeddings(dataset, modality, device):
     print("Calculating embeddings... for dataset: ", dataset, "and modality: ", modality)
     print("=" * 60)
+    
+    max_len = get_max_len(dataset, modality)
 
     if modality == 'RNA':
-        embedder = RNAFMEmbedder(device=device)
+        embedder = RNAFMEmbedder(device=device, max_len=max_len)
     elif modality == 'Protein':
-        embedder = ESM2Embedder(device=device)
+        embedder = ESM2Embedder(device=device, max_len=max_len)
     elif modality == 'DNA':
-        embedder = NucleotideTransformerEmbedder(device=device)
+        embedder = NucleotideTransformerEmbedder(device=device, max_len=max_len)
     else:
         raise ValueError(f"Invalid modality: {modality}")
     
