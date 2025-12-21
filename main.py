@@ -33,6 +33,13 @@ def main(name, dataset):
     print("\nInitializing model...")
     model = build_model(config)
     
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    non_trainable_params = total_params - trainable_params
+    print(f"Total number of parameters: {total_params}")
+    print(f"Trainable parameters: {trainable_params}")
+    print(f"Non-trainable parameters: {non_trainable_params}")
+    
     # Initialize trainer
     print("\nInitializing trainer...")
     trainer = RegressionTrainer(
