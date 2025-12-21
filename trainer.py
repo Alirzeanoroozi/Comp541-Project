@@ -142,7 +142,8 @@ class RegressionTrainer:
             print(f"Epoch {epoch+1}/{epochs}")
             print(f"  Train Loss: {train_metrics['loss']:.4f}, "
                   f"MSE: {train_metrics['mse']:.4f}, "
-                  f"Spearman: {train_metrics.get('spearman', 0.0):.4f}")
+                  f"Spearman: {train_metrics.get('spearman', 0.0):.4f}, "
+                  f"LR: {train_metrics['lr']:.6f}")
             print(f"  Val Loss: {val_metrics['loss']:.4f}, "
                   f"MSE: {val_metrics['mse']:.4f}, "
                   f"Spearman: {val_metrics.get('spearman', 0.0):.4f}")
