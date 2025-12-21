@@ -74,15 +74,11 @@ class RegressionTrainer:
         
         mse = mean_squared_error(all_targets, all_preds)
         
-        # Compute Spearman correlation
-        try:
-            spearman_corr, _ = spearmanr(all_targets, all_preds)
-        except:
-            spearman_corr = 0.0
+        spearman_corr = spearmanr(all_targets, all_preds)[0]
         
         avg_loss = total_loss / len(self.train_loader)
         
-        return {'loss': avg_loss, 'mse': mse, 'spearman': spearman_corr}
+        return {'loss': avg_loss, 'mse': mse, 'spearman': spearman_corr, 'lr': self.optimizer.param_groups[0]['lr']}
     
     def validate(self, loader):
         self.model.eval()
@@ -108,11 +104,7 @@ class RegressionTrainer:
         
         mse = mean_squared_error(all_targets, all_preds)
         
-        # Compute Spearman correlation
-        try:
-            spearman_corr, _ = spearmanr(all_targets, all_preds)
-        except:
-            spearman_corr = 0.0
+        spearman_corr = spearmanr(all_targets, all_preds)[0]
         
         avg_loss = total_loss / len(loader)
         
