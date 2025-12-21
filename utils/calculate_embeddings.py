@@ -21,6 +21,8 @@ def process_dataset_embedding(dataset, modality, model):
     os.makedirs(out_folder, exist_ok=True)
     for idx, seq in enumerate(tqdm(sequences, desc=f"Embedding {dataset} from {modality}")):
         emb = model(seq)
+        if idx == 0:
+            print(f"Embedding shape: {emb.shape}")
         save_fp = os.path.join(out_folder, f"seq{idx+1}.pt")
         save_embedding(emb, save_fp)
 

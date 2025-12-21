@@ -16,7 +16,7 @@ def main(name, dataset):
     # check if the embeddings are calculated
     if not os.path.exists(f"embeddings/{config['Dataset']}/{config['modality']}"):
         print("Embeddings not found, calculating...")
-        calculate_embeddings(config['Dataset'], config['modality'])
+        calculate_embeddings(config['Dataset'], config['modality'], config['device'])
     
     print("=" * 60)
     print("Training Configuration:")
