@@ -1,4 +1,3 @@
 name: uni_protein
 modality: Protein
-projection_dim: 600 # dimension of the projection head
 embedding_dim: 320 # dimension of the embedding

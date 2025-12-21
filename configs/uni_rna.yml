@@ -1,4 +1,3 @@
 name: uni_rna
 modality: RNA
-projection_dim: 600 # dimension of the projection head
 embedding_dim: 640 # dimension of the embedding
