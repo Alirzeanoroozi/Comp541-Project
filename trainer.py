@@ -8,6 +8,7 @@ from sklearn.metrics import mean_squared_error
 from scipy.stats import spearmanr
 from tqdm import tqdm
 import pandas as pd
+import json
 
 class RegressionTrainer:
     def __init__(self, model, train_loader, val_loader, test_loader, device, save_dir):
@@ -20,7 +21,7 @@ class RegressionTrainer:
         self.optimizer = optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-5)
         self.criterion = nn.MSELoss()
     
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=5)
+        #self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=5)
         
         # Early stopping
         self.early_stopping_patience = 20
@@ -47,69 +48,89 @@ class RegressionTrainer:
     def train_epoch(self):
         self.model.train()
         total_loss = 0.0
+        n = 0
         all_preds = []
         all_targets = []
-        
+
         for batch in tqdm(self.train_loader, desc="Training"):
             self.optimizer.zero_grad()
-            
-            seqs, embeddings, targets = batch
-            embeddings = embeddings.to(self.device)
-            targets = targets.to(self.device).float()
-            outputs = self.model(seqs, embeddings)
-            
+
+            seqs, embeddings, labels, lengths, mask = batch
+
+            embeddings = embeddings.to(self.device)          # [B, L, D]
+            targets = labels.to(self.device).float().view(-1)  # [B]
+            mask = mask.to(self.device)                      # [B, L] bool
+
+            outputs = self.model(seqs, embeddings, mask=mask).float().view(-1)  # [B]
+
             loss = self.criterion(outputs, targets)
-            
-            # Backward pass
+
             loss.backward()
             self.optimizer.step()
             
-            # Track metrics
-            total_loss += loss.item()
+            # fixes possible skew due to last batch being smaller
+            bs = targets.size(0)
+            total_loss += loss.item() * bs
+            n += bs
+
             all_preds.extend(outputs.detach().cpu().numpy())
             all_targets.extend(targets.detach().cpu().numpy())
-        
-        # Compute metrics
+
         all_preds = np.array(all_preds)
         all_targets = np.array(all_targets)
-        
+
         mse = mean_squared_error(all_targets, all_preds)
-        
         spearman_corr = spearmanr(all_targets, all_preds)[0]
-        
-        avg_loss = total_loss / len(self.train_loader)
-        
+        avg_loss = total_loss / max(n, 1)
+
         return {'loss': avg_loss, 'mse': mse, 'spearman': spearman_corr, 'lr': self.optimizer.param_groups[0]['lr']}
+
     
     def validate(self, loader):
         self.model.eval()
         total_loss = 0.0
+        n = 0
         all_preds = []
         all_targets = []
-        
+
         with torch.no_grad():
             for batch in tqdm(loader, desc="Validating"):
-                seqs, embeddings, targets = batch
+                seqs, embeddings, labels, lengths, mask = batch
+
                 embeddings = embeddings.to(self.device)
-                targets = targets.to(self.device).float()
-                outputs = self.model(seqs, embeddings)
+                targets = labels.to(self.device).float().view(-1)
+                mask = mask.to(self.device)
+
+                outputs = self.model(seqs, embeddings, mask=mask).float().view(-1)
+
                 loss = self.criterion(outputs, targets)
-                
-                total_loss += loss.item()
-                all_preds.extend(outputs.cpu().numpy())
-                all_targets.extend(targets.cpu().numpy())
-        
-        # Compute metrics
-        all_preds = np.array(all_preds)
-        all_targets = np.array(all_targets)
-        
+
+                bs = targets.size(0)
+                total_loss += loss.item() * bs
+                n += bs
+
+                all_preds.extend(outputs.detach().cpu().tolist())
+                all_targets.extend(targets.detach().cpu().tolist())
+
+        all_preds = np.asarray(all_preds, dtype=np.float32)
+        all_targets = np.asarray(all_targets, dtype=np.float32)
+
         mse = mean_squared_error(all_targets, all_preds)
-        
-        spearman_corr = spearmanr(all_targets, all_preds)[0]
-        
-        avg_loss = total_loss / len(loader)
-        
-        return {'loss': avg_loss, 'mse': mse, 'spearman': spearman_corr, 'predictions': all_preds, 'targets': all_targets}
+
+        rho = spearmanr(all_targets, all_preds).correlation
+        if not np.isfinite(rho):
+            rho = 0.0
+
+        avg_loss = total_loss / max(n, 1)
+
+        return {
+            "loss": avg_loss,
+            "mse": mse,
+            "spearman": rho,
+            "predictions": all_preds,
+            "targets": all_targets,
+        }
+
     
     def train(self, epochs):
         print(f"Starting training for {epochs} epochs...")
@@ -124,7 +145,7 @@ class RegressionTrainer:
             val_metrics = self.validate(self.val_loader)
             
             # Update scheduler
-            self.scheduler.step(val_metrics['loss'])
+            #self.scheduler.step(val_metrics['loss'])
             
             # Update history
             self.history['train_loss'].append(train_metrics['loss'])
@@ -248,6 +269,24 @@ class RegressionTrainer:
         plt.savefig(self.save_dir / f'predictions_{epoch_str}.png', dpi=300, bbox_inches='tight')
         plt.close()
 
+    # helper for save_values
+    def _best_min(self, values):
+        """Return (best_value, best_epoch_1based) for a metric where lower is better."""
+        if not values:
+            return None, None
+        arr = np.asarray(values, dtype=np.float64)
+        idx = int(np.nanargmin(arr))
+        return float(arr[idx]), idx + 1
+
+    # helper for save_values
+    def _best_max(self, values):
+        """Return (best_value, best_epoch_1based) for a metric where higher is better."""
+        if not values:
+            return None, None
+        arr = np.asarray(values, dtype=np.float64)
+        idx = int(np.nanargmax(arr))
+        return float(arr[idx]), idx + 1
+
     def save_values(self, metrics, epoch):
         predictions = metrics.get("predictions")
         targets = metrics.get("targets")
@@ -257,3 +296,42 @@ class RegressionTrainer:
                 "targets": targets
             })
             df.to_csv(self.save_dir / f"{epoch}_predictions_vs_targets.csv", index=False)
+        
+        # record best metrics
+        best_train_loss, best_train_loss_ep = self._best_min(self.history.get("train_loss", []))
+        best_val_loss, best_val_loss_ep = self._best_min(self.history.get("val_loss", []))
+        best_train_mse, best_train_mse_ep = self._best_min(self.history.get("train_mse", []))
+        best_val_mse, best_val_mse_ep = self._best_min(self.history.get("val_mse", []))
+        best_train_spearman, best_train_spearman_ep = self._best_max(self.history.get("train_spearman", []))
+        best_val_spearman, best_val_spearman_ep = self._best_max(self.history.get("val_spearman", []))
+        summary_path = self.save_dir / "metrics_summary.json"
+
+        if summary_path.exists():
+            try:
+                with open(summary_path, "r") as f:
+                    summary = json.load(f)
+            except Exception:
+                summary = {}
+        else:
+            summary = {}
+
+        summary["best_metrics"] = {
+            "train": {
+                "loss": {"value": best_train_loss, "epoch": best_train_loss_ep},
+                "mse": {"value": best_train_mse, "epoch": best_train_mse_ep},
+                "spearman": {"value": best_train_spearman, "epoch": best_train_spearman_ep},
+            },
+            "val": {
+                "loss": {"value": best_val_loss, "epoch": best_val_loss_ep},
+                "mse": {"value": best_val_mse, "epoch": best_val_mse_ep},
+                "spearman": {"value": best_val_spearman, "epoch": best_val_spearman_ep},
+            },
+        }
+
+        # Also record the metrics from this call (e.g., "final", "test")
+        run_metrics = {k: v for k, v in metrics.items() if k not in ("predictions", "targets")}
+        summary.setdefault("runs", {})
+        summary["runs"][str(epoch)] = run_metrics
+
+        with open(summary_path, "w") as f:
+            json.dump(summary, f, indent=2)
