@@ -55,13 +55,13 @@ class RegressionTrainer:
         for batch in tqdm(self.train_loader, desc="Training"):
             self.optimizer.zero_grad()
 
-            seqs, embeddings, labels, lengths, mask = batch
+            embeddings, labels, lengths, mask = batch
 
             embeddings = embeddings.to(self.device)          # [B, L, D]
             targets = labels.to(self.device).float().view(-1)  # [B]
             mask = mask.to(self.device)                      # [B, L] bool
 
-            outputs = self.model(seqs, embeddings, mask=mask).float().view(-1)  # [B]
+            outputs = self.model(embeddings, mask=mask).float().view(-1)  # [B]
 
             loss = self.criterion(outputs, targets)
 
@@ -95,13 +95,13 @@ class RegressionTrainer:
 
         with torch.no_grad():
             for batch in tqdm(loader, desc="Validating"):
-                seqs, embeddings, labels, lengths, mask = batch
+                embeddings, labels, lengths, mask = batch
 
                 embeddings = embeddings.to(self.device)
                 targets = labels.to(self.device).float().view(-1)
                 mask = mask.to(self.device)
 
-                outputs = self.model(seqs, embeddings, mask=mask).float().view(-1)
+                outputs = self.model(embeddings, mask=mask).float().view(-1)
 
                 loss = self.criterion(outputs, targets)
 
