@@ -6,7 +6,7 @@ class UnimodalRegressionModel(nn.Module):
         super().__init__()
         self.net = TextCNNHead(input_dim)
 
-    def forward(self, seqs, embeddings, mask=None):
+    def forward(self, embeddings, mask=None):
         # embeddings: [B, L, D], mask: [B, L] (bool)
         return self.net(embeddings, mask=mask).squeeze(-1)
 
