@@ -17,9 +17,9 @@ def get_loaders(name, batch_size=32, modality="RNA", max_len=None):
     if max_len is not None:
         embedding_folder = f"{embedding_folder}/maxlen{max_len}"
 
-    train_dataset = UnimodalDataset(embedding_folder, train_df[modality].tolist(), train_df["Value"].tolist(), train_df["id"].tolist())
-    val_dataset   = UnimodalDataset(embedding_folder, val_df[modality].tolist(),   val_df["Value"].tolist(),   val_df["id"].tolist())
-    test_dataset  = UnimodalDataset(embedding_folder, test_df[modality].tolist(),  test_df["Value"].tolist(),  test_df["id"].tolist())
+    train_dataset = UnimodalDataset(embedding_folder, train_df["Value"].tolist(), train_df["id"].tolist())
+    val_dataset   = UnimodalDataset(embedding_folder, val_df["Value"].tolist(),   val_df["id"].tolist())
+    test_dataset  = UnimodalDataset(embedding_folder, test_df["Value"].tolist(),  test_df["id"].tolist())
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,  collate_fn=collate_unimodal)
     val_loader   = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False, collate_fn=collate_unimodal)
