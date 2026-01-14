@@ -29,8 +29,8 @@ def get_loaders(name, batch_size=32, modality="RNA", max_len=None):
 
 # since the sequences are of variable lengths, we need a custom collate function for padding
 def collate_unimodal(batch):
-    # batch items: (seq(str), embedding([L,D]), label(tensor))
-    seqs, embs, labels = zip(*batch)
+    # batch items: (embedding([L,D]), label(tensor))
+    embs, labels = zip(*batch)
 
     # ensure float tensors
     embs = [e.float() for e in embs]
@@ -50,6 +50,3 @@ def collate_unimodal(batch):
     labels = torch.stack(labels).float()  # [B]
     return padded, labels, lengths, mask
 
-
-    labels = torch.stack(labels).float()  # [B]
-    return list(seqs), padded, labels, lengths, mask
