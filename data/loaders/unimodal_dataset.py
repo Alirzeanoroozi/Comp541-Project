@@ -9,7 +9,7 @@ class UnimodalDataset(Dataset):
         self.ids = ids
         
     def __len__(self):
-        return len(self.sequences)
+        return len(self.ids)
 
     def __getitem__(self, idx):
         embedding = torch.load(os.path.join(self.embedding_folder, f"{self.ids[idx]}.pt"))
