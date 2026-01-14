@@ -47,6 +47,6 @@ def collate_unimodal(batch):
     # mask: True for real tokens, False for padding
     mask = torch.arange(Lmax).unsqueeze(0) < lengths.unsqueeze(1)  # [B, Lmax], bool
 
-    labels = torch.stack(labels).float()  # [B]
+    labels = torch.stack(labels).float().view(-1)  # [B]
     return padded, labels, lengths, mask
 
