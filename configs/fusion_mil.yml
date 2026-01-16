@@ -5,7 +5,7 @@ dDNA: 512
 dRNA: 640
 dProt: 320
 
-d_model: 256
-d_attn: 128
+d_model: 600
+d_attn: 100
 
-lam_entropy: 0.01
+lam_entropy: 0.01 # can be changed, not directly specified in paper
