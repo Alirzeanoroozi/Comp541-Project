@@ -20,6 +20,7 @@ def _has_any_embeddings(emb_dir) -> bool:
         return False
     return False
 
+
 def main(name: str, dataset: str, max_len: int, batch_size: int, epochs: int):
     config = load_config(f"{name}.yml")
     config["Dataset"] = dataset
@@ -27,10 +28,8 @@ def main(name: str, dataset: str, max_len: int, batch_size: int, epochs: int):
 
     max_len = int(max_len)
 
-    # multimodal filtered csv (already aligned by shared ids)
     filtered_csv = f"data/datasets/{config['Dataset']}_multimodal_filtered_maxlen{max_len}.csv"
 
-    # embeddings dirs (your structure: embeddings/<dataset>/<Modality>/maxlen<max_len>/<id>.pt)
     dna_dir = f"embeddings/{config['Dataset']}/DNA/maxlen{max_len}"
     rna_dir = f"embeddings/{config['Dataset']}/RNA/maxlen{max_len}"
     prot_dir = f"embeddings/{config['Dataset']}/Protein/maxlen{max_len}"
@@ -44,7 +43,12 @@ def main(name: str, dataset: str, max_len: int, batch_size: int, epochs: int):
     if need_filtered_csv or need_embeddings:
         print("Embeddings and/or filtered CSV not found, calculating...")
         for modality in ("DNA", "RNA", "Protein"):
-            calculate_embeddings(dataset=config["Dataset"], modality=modality, device=config["device"], max_len=max_len)
+            calculate_embeddings(
+                dataset=config["Dataset"],
+                modality=modality,
+                device=config["device"],
+                max_len=max_len,
+            )
 
     print("=" * 60)
     print("Training Configuration (Multimodal):")
@@ -58,7 +62,11 @@ def main(name: str, dataset: str, max_len: int, batch_size: int, epochs: int):
     print("=" * 60)
 
     print("\nLoading data...")
-    train_loader, val_loader, test_loader = get_multimodal_loaders(config["Dataset"], batch_size=batch_size, max_len=max_len)
+    train_loader, val_loader, test_loader = get_multimodal_loaders(
+        config["Dataset"],
+        batch_size=batch_size,
+        max_len=max_len,
+    )
 
     print("\nInitializing model...")
     model = build_model(config)
@@ -80,10 +88,17 @@ def main(name: str, dataset: str, max_len: int, batch_size: int, epochs: int):
         save_dir=f"./plots/{config.get('name', name)}/{config['Dataset']}",
     )
 
-    # entropy reg for mil
-    if "lam_entropy" in config:
-        trainer.lam_entropy = float(config["lam_entropy"])
-        print(f"Using MIL entropy regularization: lam_entropy={trainer.lam_entropy}")
+    # entropy reg for MIL (nested config with backwards-compatible fallback)
+    lam_entropy = None
+    if isinstance(config.get("trainer", None), dict):
+        lam_entropy = config["trainer"].get("lam_entropy", None)
+    if lam_entropy is None:
+        lam_entropy = config.get("lam_entropy", None)
+
+    if lam_entropy is not None:
+        trainer.lam_entropy = float(lam_entropy)
+        if trainer.lam_entropy > 0:
+            print(f"Using MIL entropy regularization: lam_entropy={trainer.lam_entropy}")
 
     print("\n" + "=" * 60)
     print("Starting training...")
@@ -133,4 +148,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    main(name=args.name, dataset=args.dataset, max_len=args.max_len, batch_size=args.batch_size, epochs=args.epochs)
+    main(
+        name=args.name,
+        dataset=args.dataset,
+        max_len=args.max_len,
+        batch_size=args.batch_size,
+        epochs=args.epochs,
+    )
+
