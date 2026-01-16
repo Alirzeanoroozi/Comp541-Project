@@ -1,50 +1,33 @@
-# loaders/multimodal_dataset.py
+import os
 import torch
 from torch.utils.data import Dataset
 
 class MultiModalDataset(Dataset):
     """
-    Each item returns:
-    {
-        "dna": DNA sequence (str),
-        "rna": RNA sequence (str),
-        "protein": AA sequence (str),
-        "text": optional text description (str)
-        "label": float or int
-    }
+    Loads 3 modality embeddings from disk.
+
+    Returns:
+      dna_emb, rna_emb, prot_emb, label
     """
+    def __init__(self, dna_folder, rna_folder, protein_folder, labels, ids):
+        assert len(labels) == len(ids)
 
-    def __init__(self, dna_seqs, rna_seqs, protein_seqs,
-                 text_seqs=None, labels=None):
-        
-        assert len(dna_seqs) == len(rna_seqs) == len(protein_seqs)
+        self.dna_folder = dna_folder
+        self.rna_folder = rna_folder
+        self.protein_folder = protein_folder
 
-        if text_seqs is not None:
-            assert len(text_seqs) == len(dna_seqs)
-
-        if labels is not None:
-            assert len(labels) == len(dna_seqs)
-
-        self.dna = dna_seqs
-        self.rna = rna_seqs
-        self.protein = protein_seqs
-        self.text = text_seqs
         self.labels = labels
+        self.ids = ids
 
     def __len__(self):
-        return len(self.dna)
+        return len(self.ids)
 
     def __getitem__(self, idx):
-        item = {
-            "dna": self.dna[idx],
-            "rna": self.rna[idx],
-            "protein": self.protein[idx],
-        }
+        _id = self.ids[idx]
 
-        if self.text is not None:
-            item["text"] = self.text[idx]
+        dna_emb  = torch.load(os.path.join(self.dna_folder, f"{_id}.pt")).float()
+        rna_emb  = torch.load(os.path.join(self.rna_folder, f"{_id}.pt")).float()
+        prot_emb = torch.load(os.path.join(self.protein_folder, f"{_id}.pt")).float()
 
-        if self.labels is not None:
-            item["label"] = torch.tensor(self.labels[idx]).float()
-
-        return item
+        label = torch.tensor(self.labels[idx], dtype=torch.float32)
+        return dna_emb, rna_emb, prot_emb, label

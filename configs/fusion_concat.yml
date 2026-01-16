@@ -1,0 +1,6 @@
+name: fusion_concat
+
+fusion_type: concat
+dDNA: 512
+dRNA: 640
+dProt: 320

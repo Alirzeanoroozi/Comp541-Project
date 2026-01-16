@@ -1,0 +1,9 @@
+name: fusion_xattn
+
+fusion_type: xattn
+dDNA: 512
+dRNA: 640
+dProt: 320
+
+d_model: 256
+num_heads: 4

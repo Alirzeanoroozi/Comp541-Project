@@ -66,3 +66,58 @@ class ModalityAlignment(nn.Module):
         aligned_Prot = aligned_Prot[:T_min]
 
         return aligned_DNA, aligned_RNA, aligned_Prot
+
+class ModalityAlignmentBatch(nn.Module):
+    """
+    Batched codon-level modality alignment.
+
+    Inputs:
+      dna:  [B, Ld, dDNA]   (6-mer tokens)
+      rna:  [B, Lr, dRNA]   (1-mer tokens)
+      prot: [B, Lp, dProt]  (AA tokens, already ~codon level)
+      dna_len, rna_len, prot_len: [B]
+
+    Outputs:
+      dna_a, rna_a, prot_a: [B, T, d*] (T = max aligned length in batch)
+      aligned_len: [B]
+      aligned_mask: [B, T] True for real, False for pad
+    """
+
+    def __init__(self, dDNA, dRNA, dProt):
+        super().__init__()
+        self.dna_up = nn.ConvTranspose1d(dDNA, dDNA, kernel_size=2, stride=2, bias=False)
+        self.rna_down = nn.AvgPool1d(kernel_size=3, stride=3)
+
+    def forward(self, dna, rna, prot, dna_len, rna_len, prot_len):
+        B = dna.size(0)
+
+        # DNA upsample: [B, Ld, d] -> [B, d, Ld] -> up -> [B, d, 2*Ld] -> [B, 2*Ld, d]
+        dna_up = self.dna_up(dna.transpose(1, 2)).transpose(1, 2)
+
+        # RNA downsample: [B, Lr, d] -> [B, d, Lr] -> pool -> [B, d, floor(Lr/3)] -> [B, L', d]
+        rna_down = self.rna_down(rna.transpose(1, 2)).transpose(1, 2)
+
+        # Protein stays same shape: [B, Lp, dProt]
+        prot_same = prot
+
+        # Valid aligned lengths per sample
+        dna_a_len  = dna_len * 2
+        rna_a_len  = rna_len // 3
+        prot_a_len = prot_len
+
+        aligned_len = torch.min(torch.min(dna_a_len, rna_a_len), prot_a_len)  # [B]
+        Tmax = int(aligned_len.max().item()) if B > 0 else 0
+
+        # Truncate to Tmax (common batch time dim)
+        dna_a  = dna_up[:, :Tmax, :]
+        rna_a  = rna_down[:, :Tmax, :]
+        prot_a = prot_same[:, :Tmax, :]
+
+        # Build aligned mask and zero out invalid positions
+        aligned_mask = (torch.arange(Tmax, device=aligned_len.device).unsqueeze(0) < aligned_len.unsqueeze(1))  # [B,T]
+        m = aligned_mask.unsqueeze(-1).float()
+        dna_a  = dna_a * m
+        rna_a  = rna_a * m
+        prot_a = prot_a * m
+
+        return dna_a, rna_a, prot_a, aligned_len, aligned_mask

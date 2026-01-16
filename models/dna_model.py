@@ -7,8 +7,12 @@ class NucleotideTransformerEmbedder(nn.Module):
         super().__init__()
         self.device = device
 
-        self.tokenizer = AutoTokenizer.from_pretrained("InstaDeepAI/nucleotide-transformer-v2-100m-multi-species", trust_remote_code=True)
-        self.model = AutoModelForMaskedLM.from_pretrained("InstaDeepAI/nucleotide-transformer-v2-100m-multi-species", trust_remote_code=True).to(device)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            "InstaDeepAI/nucleotide-transformer-v2-100m-multi-species",
+            trust_remote_code=True
+        )
+        self.model = AutoModelForMaskedLM.from_pretrained("InstaDeepAI/nucleotide-transformer-v2-100m-multi-species", trust_remote_code=True
+        ).to(device)
         self.model.eval()
 
         # nucleotide transformer max_tokens safety check
@@ -17,7 +21,8 @@ class NucleotideTransformerEmbedder(nn.Module):
 
     def forward(self, seq):
         seq = str(seq)
-        enc = self.tokenizer([seq], return_tensors="pt", padding=False,truncation=True)
+
+        enc = self.tokenizer([seq], return_tensors="pt", padding=False,truncation=True)          # safe: ensures it never exceeds max_tokens max_length=self.max_tokens
         input_ids = enc["input_ids"].to(self.device)
         attention_mask = enc.get("attention_mask", (input_ids != self.tokenizer.pad_token_id)).to(self.device)
 

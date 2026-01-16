@@ -103,5 +103,3 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     main(args.name, args.dataset, args.max_len)
-
-

@@ -1,0 +1,11 @@
+name: fusion_mil
+
+fusion_type: mil
+dDNA: 512
+dRNA: 640
+dProt: 320
+
+d_model: 256
+d_attn: 128
+
+lam_entropy: 0.01
