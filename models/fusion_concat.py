@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class FusionConcat(nn.Module):
-    def __init__(self, dDNA, dRNA, dProt):
+    def __init__(self, dDNA: int, dRNA: int, dProt: int):
         super().__init__()
         self.output_dim = dDNA + dRNA + dProt
 
@@ -24,3 +24,4 @@ class FusionConcat(nn.Module):
             fused = fused * mask.unsqueeze(-1).float()
 
         return fused
+
