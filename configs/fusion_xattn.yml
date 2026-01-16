@@ -1,9 +1,35 @@
 name: fusion_xattn
 
 fusion_type: xattn
+
 dDNA: 512
 dRNA: 640
 dProt: 320
 
-d_model: 256
-num_heads: 4
+alignment:
+  dna_up_kernel_size: 3
+  dna_up_stride: 2
+  dna_up_padding: 2
+  dna_up_bias: false
+
+  rna_pool_kernel_size: 3
+  rna_pool_stride: 3
+
+  align_to: protein
+
+fusion:
+  d_model: 600
+  proj_activation: tanh
+  num_heads: 4
+  attn_dropout: 0.1
+
+  use_residual: true
+  use_layernorm: true
+
+textcnn:
+  proj_dim: 640
+  kernel_sizes: [3, 4, 5]
+  out_channels: 1280
+  activation: relu
+  global_max_pool: true
+  dropout: 0.2
