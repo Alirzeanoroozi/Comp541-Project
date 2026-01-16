@@ -3,13 +3,36 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class FusionMIL(nn.Module):
-    def __init__(self, dDNA, dRNA, dProt, d_model, d_attn):
+    def __init__(
+        self,
+        dDNA: int,
+        dRNA: int,
+        dProt: int,
+        d_model: int,
+        d_attn: int,
+        proj_activation: str = "tanh",
+        tau_init: float = 1.0,
+        tau_min: float = 0.02,
+        tau_max: float = 20.0,
+    ):
         super().__init__()
 
-        # Per-modality projection + tanh
-        self.proj_DNA  = nn.Sequential(nn.Linear(dDNA,  d_model), nn.Tanh())
-        self.proj_RNA  = nn.Sequential(nn.Linear(dRNA,  d_model), nn.Tanh())
-        self.proj_Prot = nn.Sequential(nn.Linear(dProt, d_model), nn.Tanh())
+        act = proj_activation.lower()
+        if act == "tanh":
+            act_layer = nn.Tanh()
+        elif act == "relu":
+            act_layer = nn.ReLU()
+        elif act == "gelu":
+            act_layer = nn.GELU()
+        elif act in ("none", "linear", ""):
+            act_layer = nn.Identity()
+        else:
+            raise ValueError(f"Unknown proj_activation='{proj_activation}'")
+
+        # Per-modality projection + activation
+        self.proj_DNA  = nn.Sequential(nn.Linear(dDNA,  d_model), act_layer)
+        self.proj_RNA  = nn.Sequential(nn.Linear(dRNA,  d_model), act_layer)
+        self.proj_Prot = nn.Sequential(nn.Linear(dProt, d_model), act_layer)
 
         # Gated attention
         self.V_DNA  = nn.Linear(d_model, d_attn)
@@ -21,8 +44,10 @@ class FusionMIL(nn.Module):
 
         self.W = nn.Linear(d_attn, 1, bias=False)
 
-        # Learned softmax temperature tau, clamped to [0.02, 20.0]
-        self.tau = nn.Parameter(torch.tensor(1.0))
+        # Learned softmax temperature
+        self.tau = nn.Parameter(torch.tensor(float(tau_init)))
+        self.tau_min = float(tau_min)
+        self.tau_max = float(tau_max)
 
         self.output_dim = d_model
 
@@ -42,6 +67,10 @@ class FusionMIL(nn.Module):
         if mask is None:
             raise ValueError("FusionMIL requires a mask for correct pooling.")
 
+        if mask.dtype != torch.bool:
+            mask = mask.bool()
+        mask = mask.to(DNA.device)
+
         H_DNA  = self.proj_DNA(DNA)                 # [B, T, d_model]
         H_RNA  = self.proj_RNA(RNA)
         H_Prot = self.proj_Prot(Prot)
@@ -56,7 +85,7 @@ class FusionMIL(nn.Module):
 
         scores = torch.cat([s_DNA, s_RNA, s_Prot], dim=1)   # [B, 3]
 
-        tau = self.tau.clamp(0.02, 20.0)
+        tau = self.tau.clamp(self.tau_min, self.tau_max)
         alpha = F.softmax(scores / tau, dim=1)              # [B, 3]
 
         a0 = alpha[:, 0].view(-1, 1, 1)
@@ -67,3 +96,4 @@ class FusionMIL(nn.Module):
         Z_fused = Z_fused * mask.unsqueeze(-1).float()
 
         return Z_fused, alpha
+
