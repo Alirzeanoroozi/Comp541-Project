@@ -1,0 +1,37 @@
+name: fusion_mil
+
+fusion_type: mil
+
+dDNA: 512
+dRNA: 640
+dProt: 320
+
+alignment:
+  dna_up_kernel_size: 3
+  dna_up_stride: 2
+  dna_up_padding: 2
+  dna_up_bias: false
+
+  rna_pool_kernel_size: 3
+  rna_pool_stride: 3
+
+  align_to: protein
+
+fusion:
+  d_model: 600
+  proj_activation: tanh
+  d_attn: 100
+  tau_init: 1.0
+  tau_min: 0.02
+  tau_max: 20.0
+
+trainer:
+  lam_entropy: 0.01
+
+textcnn:
+  proj_dim: 640
+  kernel_sizes: [3, 4, 5]
+  out_channels: 1280
+  activation: relu
+  global_max_pool: true
+  dropout: 0.2

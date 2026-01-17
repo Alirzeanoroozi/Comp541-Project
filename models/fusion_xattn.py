@@ -1,115 +1,137 @@
-# fusion_xattn.py
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class FusionCrossAttention(nn.Module):
     """
-    Cross-modal Multi-Head Attention Fusion
-    Implements BioLangFusion Section 2.2.3 exactly.
-
-    Inputs (aligned):
-        DNA:  (T', dDNA)
-        RNA:  (T', dRNA)
-        Prot: (T', dProt)
-
-    Output:
-        Z_fused: (T', d_model) — final fused representation.
+      1) Project each modality to shared dim d_model (with optional activation)
+      2) Build context C = [H_DNA, H_RNA, H_Prot] along time (B, 3T, d_model)
+      3) For each modality m:
+           A_m = MHA(Q=H_m, K=C, V=C)
+           Z_m = LN_m( H_m + Dropout( Proj_m(A_m) ) )    # g(.) includes projection + residual + LayerNorm
+      4) Concatenate Z_m across feature dim -> Linear fusion -> residual avg + final LayerNorm
+      5) Apply output dropout and mask
     """
 
-    def __init__(self, dDNA, dRNA, dProt, d_model, num_heads):
-        """
-        dDNA, dRNA, dProt : input embedding dims
-        d_model           : shared dimension after projection
-        num_heads         : multi-head attention heads
-        """
+    def __init__(
+        self,
+        dDNA: int,
+        dRNA: int,
+        dProt: int,
+        d_model: int,
+        num_heads: int,
+        proj_activation: str = "tanh",
+        attn_dropout: float = 0.1,
+        out_dropout: float = 0.2,
+        use_per_modality_residual_ln: bool = True,
+        use_final_residual_avg: bool = True,
+        use_final_layernorm: bool = True,
+    ):
         super().__init__()
 
-        # -------------------------------------------------------------
-        # (1) Project modalities to shared space H_m ∈ R^{T' × d_model}
-        # -------------------------------------------------------------
-        self.proj_DNA  = nn.Linear(dDNA,  d_model)
-        self.proj_RNA  = nn.Linear(dRNA,  d_model)
-        self.proj_Prot = nn.Linear(dProt, d_model)
+        # projection activation
+        act = proj_activation.lower()
+        if act == "tanh":
+            act_layer = nn.Tanh()
+        elif act == "relu":
+            act_layer = nn.ReLU()
+        elif act == "gelu":
+            act_layer = nn.GELU()
+        elif act in ("none", "linear", ""):
+            act_layer = nn.Identity()
+        else:
+            raise ValueError(f"Unknown proj_activation='{proj_activation}'")
 
-        # -------------------------------------------------------------
-        # (2) Multi-head attention for each modality query
-        #     Each modality has its own Q/K/V projections (paper Eq. 4)
-        # -------------------------------------------------------------
-        self.attn_DNA  = nn.MultiheadAttention(embed_dim=d_model, num_heads=num_heads, batch_first=True)
-        self.attn_RNA  = nn.MultiheadAttention(embed_dim=d_model, num_heads=num_heads, batch_first=True)
-        self.attn_Prot = nn.MultiheadAttention(embed_dim=d_model, num_heads=num_heads, batch_first=True)
+        # per-modality projection to d_model
+        self.proj_DNA = nn.Sequential(nn.Linear(dDNA, d_model), act_layer)
+        self.proj_RNA = nn.Sequential(nn.Linear(dRNA, d_model), act_layer)
+        self.proj_Prot = nn.Sequential(nn.Linear(dProt, d_model), act_layer)
 
-        # -------------------------------------------------------------
-        # Output projections after attention (part of g() in paper Eq. 4)
-        # -------------------------------------------------------------
-        self.out_DNA  = nn.Linear(d_model, d_model)
-        self.out_RNA  = nn.Linear(d_model, d_model)
+        # per-modality attention
+        self.attn_DNA = nn.MultiheadAttention(d_model, num_heads, dropout=attn_dropout, batch_first=True)
+        self.attn_RNA = nn.MultiheadAttention(d_model, num_heads, dropout=attn_dropout, batch_first=True)
+        self.attn_Prot = nn.MultiheadAttention(d_model, num_heads, dropout=attn_dropout, batch_first=True)
+
+        # g(.) projection layers
+        self.out_DNA = nn.Linear(d_model, d_model)
+        self.out_RNA = nn.Linear(d_model, d_model)
         self.out_Prot = nn.Linear(d_model, d_model)
 
-        # -------------------------------------------------------------
-        # (3) Fusion projection for concatenated Z_m outputs
-        # -------------------------------------------------------------
+        # g(.) residual + layernorm per modality
+        self.use_per_modality_residual_ln = bool(use_per_modality_residual_ln)
+        self.ln_DNA = nn.LayerNorm(d_model)
+        self.ln_RNA = nn.LayerNorm(d_model)
+        self.ln_Prot = nn.LayerNorm(d_model)
+
+        # fusion head
         self.fusion_proj = nn.Linear(3 * d_model, d_model)
+        self.use_final_residual_avg = bool(use_final_residual_avg)
+        self.use_final_layernorm = bool(use_final_layernorm)
+        self.final_ln = nn.LayerNorm(d_model) if self.use_final_layernorm else nn.Identity()
 
-        # (4) Final layer normalization (Eq. 5)
-        self.layernorm = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(out_dropout) if out_dropout and out_dropout > 0 else nn.Identity()
+        self.output_dim = d_model
 
-    def forward(self, DNA, RNA, Prot):
+    def _g(self, H, A, out_proj, ln):
         """
-        Inputs:
-            DNA, RNA, Prot: (T', d_m)
-
-        Returns:
-            Z_fused: (T', d_model)
+        g(.) block per modality: projection + (optional) residual + LayerNorm
+          H: [B, T, d]
+          A: [B, T, d] attention output
         """
+        Z = out_proj(A)                  # projection
+        if self.use_per_modality_residual_ln:
+            Z = ln(H + Z)                # residual + LayerNorm
+        return Z
 
-        # -----------------------------
-        # (1) Project to shared space
-        # -----------------------------
-        H_DNA  = self.proj_DNA(DNA)
-        H_RNA  = self.proj_RNA(RNA)
+    def forward(self, DNA, RNA, Prot, mask):
+        """
+        DNA/RNA/Prot: [B, T, d*]
+        mask:         [B, T] bool (aligned_mask). True=real, False=pad
+        returns:      [B, T, d_model]
+        """
+        if mask is None:
+            raise ValueError("FusionCrossAttention requires a mask for key padding.")
+
+        device = DNA.device
+        mask = mask.to(device)
+        if mask.dtype != torch.bool:
+            mask = mask.bool()
+
+        # Project to shared dim
+        H_DNA = self.proj_DNA(DNA)       # [B, T, d]
+        H_RNA = self.proj_RNA(RNA)
         H_Prot = self.proj_Prot(Prot)
 
-        # -----------------------------
-        # (2) Build context C = [DNA; RNA; Prot]
-        # -----------------------------
-        C = torch.cat([H_DNA, H_RNA, H_Prot], dim=0)  # shape (3T', d_model)
+        # context C = concat along time: [B, 3T, d]
+        C = torch.cat([H_DNA, H_RNA, H_Prot], dim=1)
 
-        # Expand to batch before attention
-        C_batch = C.unsqueeze(0)
+        # key_padding_mask expects True for positions to ignore
+        c_kpm = (~mask).repeat(1, 3)     # [B, 3T]
 
-        # Queries for each modality
-        Q_DNA  = H_DNA.unsqueeze(0)
-        Q_RNA  = H_RNA.unsqueeze(0)
-        Q_Prot = H_Prot.unsqueeze(0)
+        # cross-modal attention
+        A_DNA, _ = self.attn_DNA(H_DNA, C, C, key_padding_mask=c_kpm, need_weights=False)
+        A_RNA, _ = self.attn_RNA(H_RNA, C, C, key_padding_mask=c_kpm, need_weights=False)
+        A_Prot, _ = self.attn_Prot(H_Prot, C, C, key_padding_mask=c_kpm, need_weights=False)
 
-        # -----------------------------
-        # (3) Cross-modal attention (Eq. 4)
-        # -----------------------------
-        Z_DNA, _  = self.attn_DNA (Q_DNA,  C_batch, C_batch)
-        Z_RNA, _  = self.attn_RNA (Q_RNA,  C_batch, C_batch)
-        Z_Prot, _ = self.attn_Prot(Q_Prot, C_batch, C_batch)
+        # g(.) per modality: projection + residual + LN
+        Z_DNA = self._g(H_DNA, A_DNA, self.out_DNA, self.ln_DNA)     # [B, T, d]
+        Z_RNA = self._g(H_RNA, A_RNA, self.out_RNA, self.ln_RNA)
+        Z_Prot = self._g(H_Prot, A_Prot, self.out_Prot, self.ln_Prot)
 
-        # Remove batch dimension
-        Z_DNA  = self.out_DNA(Z_DNA.squeeze(0))
-        Z_RNA  = self.out_RNA(Z_RNA.squeeze(0))
-        Z_Prot = self.out_Prot(Z_Prot.squeeze(0))
+        # fusion: concat streams -> linear
+        Z_concat = torch.cat([Z_DNA, Z_RNA, Z_Prot], dim=-1)         # [B, T, 3d]
+        Z = self.fusion_proj(Z_concat)                               # [B, T, d]
 
-        # -----------------------------
-        # (4) Concatenate and project (paper Eq. 5)
-        # -----------------------------
-        Z_concat = torch.cat([Z_DNA, Z_RNA, Z_Prot], dim=-1)  # (T', 3*d_model)
-        Z = self.fusion_proj(Z_concat)                        # (T', d_model)
+        # final residual avg + final LN
+        if self.use_final_residual_avg:
+            Z_resid = (Z_DNA + Z_RNA + Z_Prot) / 3.0
+            Z = Z + Z_resid
 
-        # Modality-average residual term
-        Z_resid = (Z_DNA + Z_RNA + Z_Prot) / 3
+        Z_fused = self.final_ln(Z)
+        Z_fused = self.dropout(Z_fused)
 
-        # -----------------------------
-        # (5) Final representation (Eq. 5)
-        # -----------------------------
-        Z_fused = self.layernorm(Z + Z_resid)
-
+        # mask padding positions
+        Z_fused = Z_fused * mask.unsqueeze(-1).float()
         return Z_fused
+
+
