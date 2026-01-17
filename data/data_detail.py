@@ -1,0 +1,68 @@
+# import os
+# import torch
+# import pandas as pd
+# from tqdm import tqdm
+# from models.rna_model import RNAFMEmbedder
+# from models.protein_model import ESM2Embedder
+# from models.dna_model import NucleotideTransformerEmbedder
+
+# DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# DATASETS = [
+#     "fungal_expression",
+#     # "mrna_stability",
+#     "ecoli_proteins",
+#     "cov_vaccine_degradation"
+# ]
+
+# MODALITIES = [
+#     'Protein',
+#     'RNA',
+#     'DNA'
+# ]
+
+# OUT_EMB_ROOT = "embeddings"
+
+# def read_sequences_from_file(file_path, modality):
+#     df = pd.read_csv(file_path)
+#     seqs = df[modality].tolist()
+#     return seqs
+
+# def save_embedding(embedding, save_path):
+#     os.makedirs(os.path.dirname(save_path), exist_ok=True)
+#     torch.save(embedding.cpu(), save_path)
+
+# def process_dataset_embedding(dataset, modality, output_folder, model):
+#     sequences = read_sequences_from_file(f"data/datasets/{dataset}_multimodal.csv", modality)
+#     print(dataset, modality, max(len(seq) for seq in sequences))
+
+# def main():
+#     print("Calculating embeddings... using devices: ", DEVICE)
+#     print("Datasets: ", DATASETS)
+#     print("Modalities: ", MODALITIES)
+#     print("Output folder: ", OUT_EMB_ROOT)
+#     print("=" * 60)
+    
+#     for dataset in DATASETS:
+#         for modality in MODALITIES:
+#             # if modality == 'RNA':
+#             #     embedder = RNAFMEmbedder(device=DEVICE)
+#             # elif modality == 'Protein':
+#             #     embedder = ESM2Embedder(device=DEVICE)
+#             # elif modality == 'DNA':
+#             #     embedder = NucleotideTransformerEmbedder(device=DEVICE)
+#             # else:
+#             #     raise ValueError(f"Invalid modality: {modality}")
+#             out_folder = os.path.join(OUT_EMB_ROOT, dataset, modality)
+#             os.makedirs(out_folder, exist_ok=True)
+#             embedder = None
+#             process_dataset_embedding(dataset, modality, out_folder, embedder)
+
+# if __name__ == "__main__":
+#     main()
+import pandas as pd
+
+df = pd.read_csv("data/datasets/fungal_expression_multimodal.csv")
+print(len(df[df['Split'] == 'train']))
+print(len(df[df['Split'] == 'val']))
+print(len(df[df['Split'] == 'test']))
