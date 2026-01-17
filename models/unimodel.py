@@ -1,60 +1,40 @@
-import torch
 import torch.nn as nn
-
-from models.rna_model import RNAFMEmbedder
-from models.protein_model import ESM2Embedder
-from models.dna_model import NucleotideTransformerEmbedder
-
-from models.prediction_head import MLPHead
+from models.prediction_head import TextCNNHead
 
 class UnimodalRegressionModel(nn.Module):
-    def __init__(self, embedder, prediction_head):
+    def __init__(self, input_dim=256):
         super().__init__()
-        self.embedder = embedder
-        self.prediction_head = prediction_head
+        self.net = TextCNNHead(input_dim, task="regression",)
+
+    def forward(self, embeddings, mask=None):
+        # embeddings: [B, L, D], mask: [B, L] (bool)
+        return self.net(embeddings, mask=mask).squeeze(-1)
+
+class UnimodalClassificationModel(nn.Module):
+    def __init__(self, input_dim=256, num_classes=3):
+        super().__init__()
+        self.net = TextCNNHead(
+            embed_dim=input_dim,
+            task="classification",
+            num_classes=num_classes,  
+        )
+
+    def forward(self, embeddings, mask=None):
+        return self.net(embeddings, mask=mask)
+
     
-    def forward(self, seqs):        
-        batch_embeddings = []
-        for seq in seqs:
-            seq = str(seq)
-            embeddings = self.embedder(seq)  # (L, D)
-            pooled = embeddings.mean(dim=0)  # (D,)
-            batch_embeddings.append(pooled)
-        batch_embeddings = torch.stack(batch_embeddings, dim=0)  # (B, D)
-        predictions = self.prediction_head(batch_embeddings)  # (B,)
-        return predictions
+    
+def build_model(config):
+    task = config.get("task", "classification")
 
-
-def build_unimodal_model(config):
-    modality = config["modality"].lower()
-
-    if modality == "dna":
-        embedder = NucleotideTransformerEmbedder(
-            max_len=config["max_len"],
-            device=config["device"]
+    if task == "classification":
+        return UnimodalClassificationModel(
+            input_dim=config["embedding_dim"],
+            num_classes=config["num_classes"]   
         )
-        embedding_dim = 768   # ✅ DNABERT-2
-
-    elif modality == "rna":
-        embedder = RNAFMEmbedder(
-            max_len=config["max_len"],
-            device=config["device"]
-        )
-        embedding_dim = 640   # ✅ RNA-FM
-
-    elif modality == "protein":
-        embedder = ESM2Embedder(
-            max_len=config["max_len"],
-            device=config["device"]
-        )
-        embedding_dim = 640   # ✅ ESM2
-
     else:
-        raise ValueError(f"Unknown unimodal modality: {modality}")
+        # 🔥 regression MUST output 1 value
+        return UnimodalRegressionModel(
+            input_dim=config["embedding_dim"]
+        )
 
-    prediction_head = MLPHead(
-        input_dim=embedding_dim,              # ✅ correct
-        projection_dim=config["projection_dim"]
-    )
-
-    return UnimodalRegressionModel(embedder, prediction_head)

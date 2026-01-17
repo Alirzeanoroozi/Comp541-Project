@@ -1,9 +1,3 @@
 name: uni_rna
 modality: RNA
-Dataset: fungal_expression #  'mrna_stability', 'ecoli_proteins', 'cov_vaccine_degradation', 'fungal_expression'
-batch_size: 2
-epochs: 10
-max_len: 1022 # max length of the sequence
-subset_percent: 0.01
-embedding_dim: 640   
-projection_dim: 256
+embedding_dim: 640 # dimension of the embedding
