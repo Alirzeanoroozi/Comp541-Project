@@ -6,13 +6,17 @@ from data.dataloaders import get_loaders
 from utils.load_config import load_config
 from utils.calculate_embeddings import calculate_embeddings
 from models.unimodel import build_model
-from trainer import RegressionTrainer
+from trainer import RegressionTrainer, ClassificationTrainer
 
 
 def main(name, dataset, max_len):
     config = load_config(f"{name}.yml")
     config["Dataset"] = dataset
     config["device"] = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Task selection based on dataset (ONLY ecoli_proteins uses classification)
+    is_classification = (config["Dataset"] == "ecoli_proteins")
+    task = "classification" if is_classification else "regression"
 
     max_len = int(max_len)
 
@@ -35,6 +39,7 @@ def main(name, dataset, max_len):
     print("Training Configuration:")
     print(f"  Name: {config['name']}")
     print(f"  Dataset: {config['Dataset']}")
+    print(f"  Task: {task}")
     print(f"  Modality: {config['modality']}")
     print(f"  Max Len (filter): {max_len}")
     print("=" * 60)
@@ -58,14 +63,30 @@ def main(name, dataset, max_len):
     print(f"Non-trainable parameters: {non_trainable_params}")
 
     print("\nInitializing trainer...")
-    trainer = RegressionTrainer(
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        test_loader=test_loader,
-        device=config["device"],
-        save_dir=f"./plots/{config['name']}/{config['Dataset']}",
-    )
+    save_dir = f"./plots/{config['name']}/{config['Dataset']}"
+
+    if is_classification:
+        num_classes = int(config.get("num_classes", config.get("n_classes", 3)))
+        trainer = ClassificationTrainer(
+            model=model,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            test_loader=test_loader,
+            device=config["device"],
+            save_dir=save_dir,
+            num_classes=num_classes,
+            lr=float(config.get("lr", 3e-5)),
+            weight_decay=float(config.get("weight_decay", 1e-5)),
+        )
+    else:
+        trainer = RegressionTrainer(
+            model=model,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            test_loader=test_loader,
+            device=config["device"],
+            save_dir=save_dir,
+        )
 
     print("\n" + "=" * 60)
     print("Starting training...")
