@@ -6,7 +6,9 @@ from data.dataloaders import get_multimodal_loaders
 from utils.load_config import load_config
 from utils.calculate_embeddings import calculate_embeddings
 from models.multimodel import build_model
-from trainer import RegressionTrainer
+
+# Trainers
+from trainer import RegressionTrainer, ClassificationTrainer
 
 
 def _has_any_embeddings(emb_dir) -> bool:
@@ -25,6 +27,10 @@ def main(name: str, dataset: str, max_len: int, batch_size: int, epochs: int):
     config = load_config(f"{name}.yml")
     config["Dataset"] = dataset
     config["device"] = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Task selection based on dataset (ONLY ecoli_proteins uses classification)
+    is_classification = (config["Dataset"] == "ecoli_proteins")
+    task = "classification" if is_classification else "regression"
 
     max_len = int(max_len)
 
@@ -54,6 +60,7 @@ def main(name: str, dataset: str, max_len: int, batch_size: int, epochs: int):
     print("Training Configuration (Multimodal):")
     print(f"  Config name: {config.get('name', name)}")
     print(f"  Dataset: {config['Dataset']}")
+    print(f"  Task: {task}")
     print(f"  Max Len (filter): {max_len}")
     print(f"  Fusion: {config.get('fusion_type', 'concat')}")
     print(f"  Batch size: {batch_size}")
@@ -79,24 +86,34 @@ def main(name: str, dataset: str, max_len: int, batch_size: int, epochs: int):
     print(f"Non-trainable parameters: {non_trainable_params}")
 
     print("\nInitializing trainer...")
-    trainer = RegressionTrainer(
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        test_loader=test_loader,
-        device=config["device"],
-        save_dir=f"./plots/{config.get('name', name)}/{config['Dataset']}",
-    )
+    save_dir = f"./plots/{config.get('name', name)}/{config['Dataset']}"
 
-    # entropy reg for MIL (nested config with backwards-compatible fallback)
-    lam_entropy = None
-    if isinstance(config.get("trainer", None), dict):
-        lam_entropy = config["trainer"].get("lam_entropy", None)
-    if lam_entropy is None:
-        lam_entropy = config.get("lam_entropy", None)
+    if is_classification:
+        num_classes = int(config.get("num_classes", config.get("n_classes", 3)))
+        trainer = ClassificationTrainer(
+            model=model,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            test_loader=test_loader,
+            device=config["device"],
+            save_dir=save_dir,
+            num_classes=num_classes,
+            lr=float(config.get("lr", 3e-5)),
+            weight_decay=float(config.get("weight_decay", 1e-5)),
+        )
+    else:
+        trainer = RegressionTrainer(
+            model=model,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            test_loader=test_loader,
+            device=config["device"],
+            save_dir=save_dir,
+        )
 
-    if lam_entropy is not None:
-        trainer.lam_entropy = float(lam_entropy)
+    # lam_entropy is only used for MIL fusion
+    if config.get("fusion_type", "").lower() == "mil":
+        trainer.lam_entropy = float(config["trainer"]["lam_entropy"])
         if trainer.lam_entropy > 0:
             print(f"Using MIL entropy regularization: lam_entropy={trainer.lam_entropy}")
 
@@ -155,4 +172,3 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         epochs=args.epochs,
     )
-
