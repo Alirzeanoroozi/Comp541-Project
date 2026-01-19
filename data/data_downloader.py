@@ -16,7 +16,7 @@ names = [
     "cov_vaccine_degradation"
 ]
 
-os.makedirs("datasets", exist_ok=True)
+os.makedirs("data/datasets", exist_ok=True)
 
 def download_data(url):
     response = requests.get(url)
@@ -25,7 +25,7 @@ def download_data(url):
 def main():
     for url in urls:
         data = download_data(url)
-        data.to_csv(f"datasets/{names[urls.index(url)]}.csv", index=False)
+        data.to_csv(f"data/datasets/{names[urls.index(url)]}.csv", index=False)
 
 if __name__ == "__main__":
     main()
