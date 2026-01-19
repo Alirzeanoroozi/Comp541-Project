@@ -21,3 +21,4 @@ nvidia-smi
 
 # python -u "main.py" --name "uni_protein"
 python data/data_downloader.py
+python data/data_converter.py

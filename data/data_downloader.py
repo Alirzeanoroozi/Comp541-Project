@@ -24,6 +24,9 @@ def download_data(url):
 
 def main():
     for url in urls:
+        if os.path.exists(f"data/datasets/{names[urls.index(url)]}.csv"):
+            continue
+        print(f"Downloading {names[urls.index(url)]}...")
         data = download_data(url)
         data.to_csv(f"data/datasets/{names[urls.index(url)]}.csv", index=False)
 
