@@ -10,15 +10,12 @@
 #SBATCH --output=logs/download_data.out
 #SBATCH --error=logs/download_data.out
 
-# -p kutem_gpu -A kutem --qos=kutem --nodelist=rk02
-
 # Initialise environment and modules
 CONDA_BASE=$(conda info --base)
 source ${CONDA_BASE}/bin/activate comp
 export LD_LIBRARY_PATH=${CONDA_BASE}/lib
 
-nvidia-smi
-
-# python -u "main.py" --name "uni_protein"
 python data/data_downloader.py
 python data/data_converter.py
+
+echo "Data downloaded and converted successfully"
