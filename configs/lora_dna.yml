@@ -1,0 +1,6 @@
+name: lora_dna
+modality: DNA
+# LoRA parameters
+lora_r: 8          # LoRA rank
+lora_alpha: 16     # LoRA alpha scaling
+lora_dropout: 0.1  # LoRA dropout

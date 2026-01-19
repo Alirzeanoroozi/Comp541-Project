@@ -28,4 +28,5 @@ dependencies:
   - pip:
     - rna-fm
     - transformers
+    - peft
 

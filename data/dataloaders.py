@@ -3,6 +3,7 @@ import torch
 from torch.utils.data import DataLoader
 from data.loaders.unimodal_dataset import UnimodalDataset
 from data.loaders.multimodal_dataset import MultiModalDataset
+from data.loaders.lora_dataset import LoRADataset
 
 def get_loaders(name, batch_size=32, modality="RNA", max_len=None):
     suffix = f"_maxlen{max_len}" if max_len is not None else ""
@@ -135,3 +136,22 @@ def collate_multimodal(batch):
         dna_len, rna_len, prot_len,
         dna_mask, rna_mask, prot_mask
     )
+
+def get_lora_loaders(name, batch_size=32, max_len=None, modality="RNA"):
+    suffix = f"_maxlen{max_len}" if max_len is not None else ""
+    df = pd.read_csv(f"data/datasets/{name}_multimodal_filtered{suffix}.csv")
+    df["Value"] = df["Value"].astype(float)
+
+    train_df = df[df["Split"] == "train"]
+    val_df   = df[df["Split"] == "val"]
+    test_df  = df[df["Split"] == "test"]
+
+    train_dataset = LoRADataset(train_df[modality].tolist(), train_df["Value"].tolist())
+    val_dataset = LoRADataset(val_df[modality].tolist(), val_df["Value"].tolist())
+    test_dataset = LoRADataset(test_df[modality].tolist(), test_df["Value"].tolist())
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader   = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False)
+    test_loader  = DataLoader(test_dataset,  batch_size=batch_size, shuffle=False)
+
+    return train_loader, val_loader, test_loader

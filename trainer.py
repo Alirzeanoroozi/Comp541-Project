@@ -51,7 +51,7 @@ class RegressionTrainer:
         self.best_val_loss = float("inf")
         self.best_model_state = None
 
-    # handles different batch types from unimodal/multimodal dataloaders
+    # handles different batch types from unimodal/multimodal/LoRA dataloaders
     def _forward_batch(self, batch):
         # multimodal
         if isinstance(batch, (tuple, list)) and len(batch) == 10:
@@ -80,6 +80,14 @@ class RegressionTrainer:
             targets = labels.to(self.device).float().view(-1)
 
             out = self.model(embeddings, mask=mask)
+
+        # LoRA (raw sequences)
+        elif isinstance(batch, (tuple, list)) and len(batch) == 2:
+            sequences, labels = batch
+            targets = labels.to(self.device).float().view(-1)
+            
+            # Model expects sequences as a list/sequence of strings
+            out = self.model(sequences)
 
         else:
             raise ValueError(

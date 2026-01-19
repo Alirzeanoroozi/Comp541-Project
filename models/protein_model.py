@@ -25,3 +25,13 @@ class ESM2Embedder(nn.Module):
             out = self.model(**tokens)
 
         return out.last_hidden_state.squeeze(0)  # (tokens, dim)
+    
+    def forward_batch(self, seqs):
+        seqs = [str(seq) for seq in seqs]
+        tokens = self.tokenizer(seqs, return_tensors="pt", padding=True, truncation=True, max_length=self.max_tokens)
+        tokens = {k: v.to(self.device) for k, v in tokens.items()}
+
+        with torch.no_grad():
+            out = self.model(**tokens)
+
+        return out.last_hidden_state.squeeze(0)  # (n_seqs, max_tokens, dim)

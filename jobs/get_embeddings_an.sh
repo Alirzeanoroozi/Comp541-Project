@@ -7,8 +7,8 @@
 #SBATCH --gres=gpu:tesla_a100:1
 #SBATCH --time=24:00:00
 #SBATCH --mem=64G
-#SBATCH --output=logs/get_embeddings_%j.out
-#SBATCH --error=logs/get_embeddings_%j.err
+#SBATCH --output=logs/get_embeddings.out
+#SBATCH --error=logs/get_embeddings.out
 
 # Initialise environment and modules
 CONDA_BASE=$(conda info --base)

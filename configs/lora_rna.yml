@@ -1,0 +1,7 @@
+name: lora_rna
+modality: RNA
+# Note: RNA-FM doesn't use PEFT LoRA, but encoder layers are fine-tuned
+# LoRA parameters (not used for RNA, but kept for consistency)
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.1
