@@ -7,8 +7,8 @@
 #SBATCH --gres=gpu:tesla_a100:1
 #SBATCH --time=24:00:00
 #SBATCH --mem=64G
-#SBATCH --output=logs/run_lora_%j.out
-#SBATCH --error=logs/run_lora_%j.out
+#SBATCH --output=logs/run_lora.out
+#SBATCH --error=logs/run_lora.out
 
 # Initialise environment and modules
 CONDA_BASE=$(conda info --base)
