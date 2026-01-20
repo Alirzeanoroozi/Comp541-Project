@@ -4,7 +4,7 @@ import os
 
 from data.dataloaders import get_lora_loaders
 from utils.load_config import load_config
-from utils.calculate_embeddings import calculate_embeddings
+from utils.calculate_embeddings import ensure_filtered_csv
 from models.lora_model import build_model
 from trainer import RegressionTrainer
 
@@ -23,6 +23,8 @@ def main(name, dataset, max_len):
     print(f"  Modality: {config['modality']}")
     print(f"  Max Len (filter): {max_len}")
     print("=" * 60)
+    
+    ensure_filtered_csv(config["Dataset"], max_len=max_len)
 
     print("\nLoading data...")
     train_loader, val_loader, test_loader = get_lora_loaders(config["Dataset"], 32, max_len=max_len, modality=config["modality"])

@@ -8,7 +8,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --mem=64G
 #SBATCH --output=logs/run_lora_%j.out
-#SBATCH --error=logs/run_lora_%j.err
+#SBATCH --error=logs/run_lora_%j.out
 
 # Initialise environment and modules
 CONDA_BASE=$(conda info --base)
@@ -17,6 +17,12 @@ export LD_LIBRARY_PATH=${CONDA_BASE}/lib
 
 nvidia-smi
 
-python -u "run_lora.py" --name "lora_rna" --dataset "fungal_expression" --max-len 1000
+# python -u "run_lora.py" --name "lora_rna" --dataset "fungal_expression" --max-len 1000
 python -u "run_lora.py" --name "lora_dna" --dataset "fungal_expression" --max-len 1000
 python -u "run_lora.py" --name "lora_protein" --dataset "fungal_expression" --max-len 1000
+
+python -u "run_lora.py" --name "lora_dna" --dataset "cov_vaccine_degradation" --max-len 1000
+python -u "run_lora.py" --name "lora_protein" --dataset "cov_vaccine_degradation" --max-len 1000
+
+python -u "run_lora.py" --name "lora_dna" --dataset "mrna_stability" --max-len 1000
+python -u "run_lora.py" --name "lora_protein" --dataset "mrna_stability" --max-len 1000
