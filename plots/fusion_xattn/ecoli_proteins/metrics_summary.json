@@ -1,0 +1,46 @@
+{
+  "best_metrics": {
+    "train": {
+      "loss": {
+        "value": 0.7023704314152663,
+        "epoch": 29
+      },
+      "mse": {
+        "value": null,
+        "epoch": null
+      },
+      "spearman": {
+        "value": null,
+        "epoch": null
+      }
+    },
+    "val": {
+      "loss": {
+        "value": 1.0670960656889192,
+        "epoch": 9
+      },
+      "mse": {
+        "value": null,
+        "epoch": null
+      },
+      "spearman": {
+        "value": null,
+        "epoch": null
+      }
+    }
+  },
+  "runs": {
+    "final": {
+      "loss": 1.0670960656889192,
+      "acc": 0.45879120879120877,
+      "f1": 0.3737146182301842,
+      "auc": 0.7080226638772021
+    },
+    "test": {
+      "loss": 1.0423507114474693,
+      "acc": 0.4747191011235955,
+      "f1": 0.3842101224051264,
+      "auc": 0.7187681136362896
+    }
+  }
+}
